@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="es-MX">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#2563eb">
+    <meta name="description" content="RealPhone POS — Sistema de Punto de Venta para tiendas de celulares y tecnología. Gestión de productos, tickets, ventas e inventario en tiempo real.">
+    <title>RealPhone POS — Punto de Venta</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- SheetJS (xlsx) para lectura/escritura de Excel -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+    <!-- Estilos de la aplicación -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+    <!-- TOAST NOTIFICATIONS -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- LOGIN OVERLAY -->
+    <div id="loginOverlay" class="overlay">
+        <div class="login-box">
+            <div class="icon"><i class="fas fa-mobile-screen-button"></i></div>
+            <h1>RealPhone <span>POS</span></h1>
+            <p style="color: #6b7a90; margin-bottom: 1.5rem; font-weight: 500;">Punto de Venta — Celulares y Tecnología</p>
+            <input type="text"     id="loginUser" placeholder="👤 Usuario"    value="admin" autocomplete="off">
+            <input type="password" id="loginPass" placeholder="🔒 Contraseña" value="1234">
+            <button class="btn" id="loginBtn">
+                <i class="fas fa-sign-in-alt"></i> Iniciar Sesión
+            </button>
+            <p id="loginError" class="login-error"></p>
+            <p class="login-hint">
+                Usuarios demo: <strong>admin</strong> / <strong>gerente</strong> / <strong>cajero</strong><br>
+                Contraseña: <strong>1234</strong>
+            </p>
+        </div>
+    </div>
+
+    <!-- POS PRINCIPAL -->
+    <div id="posContainer" class="pos-container" style="display: none;">
+
+        <!-- LEFT PANEL: Catálogo -->
+        <div class="left-panel">
+            <div class="panel-header">
+                <i class="fas fa-mobile-screen-button"></i>
+                <h2>Catálogo de Productos</h2>
+            </div>
+
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="🔍 Buscar por código o nombre..." autocomplete="off">
+                <button id="btnSearch"><i class="fas fa-search"></i></button>
+            </div>
+
+            <div class="category-tabs" id="categoryTabs">
+                <button class="category-tab active" data-cat="todas">📦 Todas</button>
+                <button class="category-tab" data-cat="fundas">🛡️ Fundas</button>
+                <button class="category-tab" data-cat="micas">📱 Micas</button>
+            </div>
+
+            <div class="product-list" id="productList">
+                <!-- Se llena dinámicamente por app.js -->
+            </div>
+
+            <div class="bottom-controls">
+                <label>🏢 Sucursal activa:</label>
+                <select id="branchSelect">
+                    <option value="principal">🏢 Principal</option>
+                    <option value="sucursal1">🏪 Sucursal 1</option>
+                    <option value="sucursal2">🏪 Sucursal 2</option>
+                    <option value="sucursal3">🏪 Sucursal 3</option>
+                    <option value="sucursal4">🏪 Sucursal 4</option>
+                    <option value="sucursal5">🏪 Sucursal 5</option>
+                </select>
+                <button id="btnLogout" class="btn-logout">
+                    <i class="fas fa-sign-out-alt"></i> Cerrar Sesión
+                </button>
+            </div>
+        </div>
+
+        <!-- RIGHT PANEL: Ticket de Venta -->
+        <div class="right-panel">
+            <div class="ticket-header">
+                <span class="ticket-id">🧾 VENTA - Ticket #<span id="ticketNumber">1</span></span>
+                <span class="user-badge" id="currentUserDisplay">
+                    <i class="fas fa-user"></i> —
+                </span>
+            </div>
+
+            <div class="ticket-table-wrapper">
+                <table class="ticket-table">
+                    <thead>
+                        <tr>
+                            <th>Código</th>
+                            <th>Descripción del Producto</th>
+                            <th>Precio</th>
+                            <th>Cant.</th>
+                            <th>Importe</th>
+                            <th>Exist.</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="ticketBody">
+                        <tr><td colspan="7" class="empty-ticket">0 Productos en la venta actual.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="ticket-footer">
+                <div class="total-row">
+                    <span>Total:</span>
+                    <span id="totalDisplay">$0.00</span>
+                </div>
+                <div class="payment-row">
+                    <span>Pago Con:</span>
+                    <span id="paymentDisplay">$0.00</span>
+                </div>
+                <div class="payment-row">
+                    <span>Cambio:</span>
+                    <span id="changeDisplay">$0.00</span>
+                </div>
+            </div>
+
+            <div class="action-buttons">
+                <button class="action-btn" id="btnMayoreo">
+                    <i class="fas fa-boxes"></i> Mayoreo (F1)
+                </button>
+                <button class="action-btn" id="btnBuscar">
+                    <i class="fas fa-search"></i> Buscar (F10)
+                </button>
+                <button class="action-btn danger" id="btnDeleteItem">
+                    <i class="fas fa-trash"></i> Borrar Art. (DEL)
+                </button>
+                <button class="action-btn" id="btnPendiente">
+                    <i class="fas fa-clock"></i> Pendiente (F6)
+                </button>
+                <button class="action-btn success" id="btnInventario">
+                    <i class="fas fa-file-excel"></i> Inventario (F8)
+                </button>
+                <button class="action-btn" id="btnAddProduct" style="border-color: rgba(37,99,235,0.3); color: var(--accent); background: var(--accent-light);">
+                    <i class="fas fa-plus-circle"></i> Agregar Producto (F2)
+                </button>
+            </div>
+
+            <div class="payment-section">
+                <input type="number" id="paymentInput" placeholder="💵 Pago con..." step="0.01" min="0">
+                <button class="action-btn accent" id="btnCobrar">
+                    <i class="fas fa-cash-register"></i> F12 - Cobrar
+                </button>
+            </div>
+
+            <div class="quick-keys">
+                <span>F1 Mayoreo</span>
+                <span>F2 Nuevo Art.</span>
+                <span>F3 Salidas</span>
+                <span>F5 Cambiar</span>
+                <span>F6 Pendiente</span>
+                <span>F7 Entradas</span>
+                <span>F8 Inventario</span>
+                <span>F9 Verificador</span>
+                <span>F10 Buscar</span>
+                <span>F12 Cobrar</span>
+                <span>DEL Borrar</span>
+                <span>CTRL+P Art. Común</span>
+                <span>? Atajos</span>
+            </div>
+        </div>
+
+    </div><!-- /pos-container -->
+
+    <!-- MODAL: Gestión de Inventario -->
+    <div id="inventoryModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-file-excel"></i> Gestión de Inventario</h2>
+                <button class="modal-close" id="btnCloseInventory">&times;</button>
+            </div>
+
+            <div class="modal-tabs">
+                <button class="modal-tab active" data-tab="add">
+                    <i class="fas fa-plus-circle"></i> Agregar Producto
+                </button>
+                <button class="modal-tab" data-tab="import">
+                    <i class="fas fa-file-import"></i> Importar Excel
+                </button>
+                <button class="modal-tab" data-tab="export">
+                    <i class="fas fa-file-export"></i> Exportar Inventario
+                </button>
+            </div>
+
+            <!-- TAB: Agregar Producto -->
+            <div class="tab-content active" id="tabAdd">
+                <div class="info-box">
+                    <i class="fas fa-info-circle"></i>
+                    <span>Llena los campos para agregar un nuevo producto al inventario. Los campos con <strong>*</strong> son obligatorios.</span>
+                </div>
+
+                <form id="addProductForm" class="product-form" autocomplete="off">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="addSku">Código / SKU *</label>
+                            <input type="text" id="addSku" placeholder="Ej: FUNDA-IP16" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="addName">Nombre del Producto *</label>
+                            <input type="text" id="addName" placeholder="Ej: Funda Silicón iPhone 16" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="addCategory">Categoría *</label>
+                            <select id="addCategory" required>
+                                <option value="fundas">🛡️ Fundas</option>
+                                <option value="micas">📱 Micas</option>
+                                <option value="otros">📦 Otros</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="addCost">Costo $</label>
+                            <input type="number" id="addCost" placeholder="0.00" step="0.01" min="0" value="0">
+                        </div>
+                        <div class="form-group">
+                            <label for="addPrice">Precio de Venta $ *</label>
+                            <input type="number" id="addPrice" placeholder="0.00" step="0.01" min="0" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="addStock">Stock Inicial</label>
+                            <input type="number" id="addStock" placeholder="0" min="0" value="1">
+                        </div>
+                    </div>
+
+                    <div class="import-actions">
+                        <button type="reset" class="action-btn">
+                            <i class="fas fa-eraser"></i> Limpiar
+                        </button>
+                        <button type="submit" class="action-btn accent">
+                            <i class="fas fa-plus"></i> Agregar al Inventario
+                        </button>
+                    </div>
+                </form>
+
+                <div id="recentlyAdded" style="margin-top:1rem;"></div>
+            </div>
+
+            <!-- TAB: Importar -->
+            <div class="tab-content" id="tabImport">
+                <div class="info-box">
+                    <i class="fas fa-info-circle"></i>
+                    <span>El archivo Excel debe contener columnas: <strong>SKU, Nombre, Categoría, Costo, Precio, Stock</strong>. Se aceptan archivos .xlsx y .xls</span>
+                </div>
+
+                <div class="drop-zone" id="dropZone">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                    <p>Arrastra tu archivo Excel aquí o haz clic para seleccionar</p>
+                    <p class="drop-hint">Formatos aceptados: .xlsx, .xls</p>
+                    <input type="file" id="fileInput" accept=".xlsx,.xls" style="display:none">
+                </div>
+
+                <div id="importStatus"></div>
+                <div id="importPreview" class="import-preview" style="display:none;"></div>
+
+                <div class="import-actions" id="importActions" style="display:none;">
+                    <button class="action-btn" id="btnCancelImport">
+                        <i class="fas fa-times"></i> Cancelar
+                    </button>
+                    <button class="action-btn accent" id="btnConfirmImport">
+                        <i class="fas fa-check"></i> Confirmar Importación
+                    </button>
+                </div>
+            </div>
+
+            <!-- TAB: Exportar -->
+            <div class="tab-content" id="tabExport">
+                <div class="info-box">
+                    <i class="fas fa-info-circle"></i>
+                    <span>Exporta tu inventario actual en formato Excel (.xlsx) para respaldo o transferencia entre sucursales.</span>
+                </div>
+
+                <div class="export-options">
+                    <div class="export-option selected" data-type="full" id="exportFull">
+                        <i class="fas fa-database"></i>
+                        <div class="title">Inventario Completo</div>
+                        <div class="desc">Todos los productos con detalles completos</div>
+                    </div>
+                    <div class="export-option" data-type="stock" id="exportStock">
+                        <i class="fas fa-cubes"></i>
+                        <div class="title">Solo Stock</div>
+                        <div class="desc">SKU, Nombre y cantidades disponibles</div>
+                    </div>
+                    <div class="export-option" data-type="template" id="exportTemplate">
+                        <i class="fas fa-file-alt"></i>
+                        <div class="title">Plantilla Vacía</div>
+                        <div class="desc">Descarga plantilla para llenar e importar</div>
+                    </div>
+                </div>
+
+                <div class="import-actions">
+                    <button class="action-btn accent" id="btnExport">
+                        <i class="fas fa-download"></i> Descargar Excel
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PANEL: Atajos de Teclado -->
+    <div id="shortcutPanel" class="shortcut-panel">
+        <h3><i class="fas fa-keyboard"></i> Atajos de Teclado — Presiona '?' para mostrar/ocultar</h3>
+        <div class="shortcut-grid">
+            <div class="shortcut-item"><span class="shortcut-key">F1</span> Modo Mayoreo</div>
+            <div class="shortcut-item"><span class="shortcut-key">F2</span> Agregar Producto</div>
+            <div class="shortcut-item"><span class="shortcut-key">F3</span> Salidas de inventario</div>
+            <div class="shortcut-item"><span class="shortcut-key">F5</span> Cambiar producto</div>
+            <div class="shortcut-item"><span class="shortcut-key">F6</span> Ticket pendiente</div>
+            <div class="shortcut-item"><span class="shortcut-key">F7</span> Entradas de inventario</div>
+            <div class="shortcut-item"><span class="shortcut-key">F8</span> Gestión Inventario</div>
+            <div class="shortcut-item"><span class="shortcut-key">F9</span> Verificador de precios</div>
+            <div class="shortcut-item"><span class="shortcut-key">F10</span> Buscar producto</div>
+            <div class="shortcut-item"><span class="shortcut-key">F12</span> Cobrar venta</div>
+            <div class="shortcut-item"><span class="shortcut-key">DEL</span> Borrar último artículo</div>
+            <div class="shortcut-item"><span class="shortcut-key">Ctrl+P</span> Artículo Común</div>
+            <div class="shortcut-item"><span class="shortcut-key">ESC</span> Cerrar modal</div>
+        </div>
+    </div>
+
+    <!-- Lógica de la aplicación -->
+    <script src="app.js"></script>
+</body>
+</html>

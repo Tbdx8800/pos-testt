@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Realphone by Telcel - Gestor de Tickets</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&family=Inter:wght@400;500;600&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+
+<body>
+    <!-- MODALS & OVERLAYS -->
+    <!-- Setup Store -->
+    <div id="setupModal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h2>Configuración Inicial</h2>
+            <p style="margin-bottom: 1.5rem; color: var(--text-muted);">Selecciona la tienda a la que pertenece este
+                dispositivo. Esta acción es permanente y requiere administrador para cambiarla.</p>
+            <div class="form-group">
+                <label for="setupStoreSelect">Tienda Actual:</label>
+                <select id="setupStoreSelect" class="w-full">
+                    <option value="">Selecciona...</option>
+                    <option value="Matriz">Matriz</option>
+                    <option value="Sunny">Sunny</option>
+                    <option value="Hospital">Hospital</option>
+                    <option value="David">David</option>
+                    <option value="Portal">Portal</option>
+                    <option value="Coppel">Coppel</option>
+                    <option value="TestStore">TestStore</option>
+                </select>
+            </div>
+            <button id="btnSaveSetup" class="btn btn-primary w-full" style="margin-top: 1rem;">Guardar y
+                Continuar</button>
+        </div>
+    </div>
+
+    <!-- Login -->
+    <div id="loginScreen" class="login-screen hidden">
+        <div class="login-card">
+            <div class="logo">
+                <img src="logo.png" alt="Real Phone & Accesorios Logo" style="max-width:200px; margin-bottom:1rem; display:block; border-radius: 8px;">
+                <h1>Acceder</h1>
+                <span class="subtitle" style="color:var(--text-muted)">¿Quién está ingresando?</span>
+            </div>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="loginUsername">Usuario</label>
+                    <input type="text" id="loginUsername" required placeholder="Tu nombre">
+                </div>
+                <div class="form-group">
+                    <label for="loginPassword">Contraseña</label>
+                    <input type="password" id="loginPassword" required placeholder="***">
+                </div>
+                <p id="loginError" style="color:red; display:none; margin-bottom:1rem; font-size:0.9rem;">Credenciales
+                    incorrectas.</p>
+                <button type="submit" class="btn btn-primary w-full">Iniciar Sesión</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add Coworker -->
+    <div id="addCoworkerModal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h2>Segundo Empleado</h2>
+            <p style="margin-bottom: 1.5rem; color: var(--text-muted);">Inicia sesión para atender tickets
+                al mismo tiempo.</p>
+            <form id="addCoworkerForm">
+                <div class="form-group">
+                    <label for="coworkerUsername">Usuario</label>
+                    <input type="text" id="coworkerUsername" required>
+                </div>
+                <div class="form-group">
+                    <label for="coworkerPassword">Contraseña</label>
+                    <input type="password" id="coworkerPassword" required>
+                </div>
+                <p id="coworkerError" style="color:red; display:none; margin-bottom:1rem; font-size:0.9rem;">
+                    Credenciales incorrectas.</p>
+                <div class="form-row">
+                    <button type="button" id="btnCancelCoworker" class="btn btn-outline"
+                        style="color:#666; border-color:#ccc">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Iniciar Sesión</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Change Password Modal -->
+    <div id="changePasswordModal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h2>Cambiar Contraseña</h2>
+            <form id="changePasswordForm">
+                <div class="form-group">
+                    <label for="currentPassword">Contraseña Actual</label>
+                    <input type="password" id="currentPassword" required>
+                </div>
+                <div class="form-group">
+                    <label for="newPassword">Nueva Contraseña</label>
+                    <input type="password" id="newPassword" required>
+                </div>
+                <p id="passwordChangeError" style="color:red; display:none; margin-bottom:1rem; font-size:0.9rem;"></p>
+                <div class="form-row">
+                    <button type="button" id="btnCancelChangePassword" class="btn btn-outline"
+                        style="color:#666; border-color:#ccc">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Confirm Ticket Modal -->
+    <div id="confirmTicketModal" class="modal-overlay hidden">
+        <div class="modal-content" style="max-width: 500px; text-align: left;">
+            <h2 style="text-align:center; margin-bottom:1.5rem;"><i class="fa-solid fa-circle-check"
+                    style="color:var(--primary-light)"></i> Confirmar Ticket</h2>
+            <p style="color:var(--text-muted); margin-bottom:1.5rem; text-align:center;">Verifica los datos antes de
+                crear el ticket:</p>
+            <div id="confirmTicketBody" style="display:flex; flex-direction:column; gap:0.75rem; margin-bottom:1.5rem;">
+            </div>
+            <div class="form-row">
+                <button type="button" id="btnCancelConfirmTicket" class="btn btn-outline"
+                    style="color:#666; border-color:#ccc;">Cancelar</button>
+                <button type="button" id="btnAcceptConfirmTicket" class="btn btn-primary"><i
+                        class="fa-solid fa-check"></i> Crear Ticket</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payment Confirmation Modal (Admin only - Facturas) -->
+    <div id="paymentConfirmModal" class="modal-overlay hidden">
+        <div class="modal-content" style="max-width: 450px;">
+            <h2 style="margin-bottom:0.5rem;"><i class="fa-solid fa-shield-halved" style="color:#f59e0b"></i> Confirmar
+                Pago</h2>
+            <p style="color:var(--text-muted); margin-bottom:1.5rem;">Como administrador, confirma que se ha recibido el
+                pago de este ticket.</p>
+            <div id="paymentConfirmBody"
+                style="background:#f8fafc; border-radius:8px; padding:1rem; margin-bottom:1.5rem; font-size:0.95rem;">
+            </div>
+            <div class="form-row">
+                <button type="button" id="btnCancelPaymentConfirm" class="btn btn-outline"
+                    style="color:#666; border-color:#ccc;">Cancelar</button>
+                <button type="button" id="btnAcceptPaymentConfirm" class="btn"
+                    style="background:#10b981; color:white;"><i class="fa-solid fa-money-bill-wave"></i> Confirmar
+                    Pago</button>
+            </div>
+        </div>
+    </div>
+
+    <header class="app-header">
+        <div class="logo" style="display:flex; align-items:center; gap:10px;">
+            <img src="logo.png" alt="Real Phone Logo" style="height: 40px; border-radius: 4px;">
+            <div>
+                <h1>Realphone</h1>
+                <span class="subtitle">by Telcel <span id="headerStoreName"
+                        style="color:white; font-weight:bold; margin-left:5px;"></span></span>
+            </div>
+        </div>
+        <div class="header-actions">
+            <!-- Theme Selector -->
+            <div class="theme-selector">
+                <button class="btn-theme" id="btnThemeToggle" title="Cambiar Tema">
+                    <i class="fa-solid fa-palette"></i> Tema
+                    <i class="fa-solid fa-chevron-down" style="font-size:0.7rem;"></i>
+                </button>
+                <div class="theme-dropdown hidden" id="themeDropdown">
+                    <button class="theme-option" data-theme="light"><i class="fa-solid fa-sun"></i> Claro</button>
+                    <button class="theme-option" data-theme="dark"><i class="fa-solid fa-moon"></i> Oscuro</button>
+                    <button class="theme-option" data-theme="blue"><i class="fa-solid fa-droplet"></i> Azul
+                        Profundo</button>
+                    <button class="theme-option" data-theme="emerald"><i class="fa-solid fa-leaf"></i>
+                        Esmeralda</button>
+                </div>
+            </div>
+            <nav class="tabs-nav">
+                <button class="tab-btn active" data-tab="tab-facturas"><i class="fa-solid fa-file-invoice-dollar"></i>
+                    Facturas</button>
+                <button class="tab-btn" data-tab="tab-reparaciones"><i class="fa-solid fa-screwdriver-wrench"></i>
+                    Reparaciones</button>
+                <button class="tab-btn" data-tab="tab-apartado"><i class="fa-solid fa-bookmark"></i>
+                    Apartado</button>
+                <button class="tab-btn" data-tab="tab-encargos"><i class="fa-solid fa-box-archive"></i>
+                    Encargos</button>
+                <button class="tab-btn hidden" id="tabAdminBtn" data-tab="tab-admin"><i
+                        class="fa-solid fa-shield-halved"></i> Admin</button>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Active Users Bar -->
+    <div class="container" style="margin-top: 1rem; margin-bottom: 0;">
+        <div id="activeUsersBar" class="active-users-bar"
+            style="display: none; justify-content: space-between; background: var(--card-bg); box-shadow: var(--shadow); color: var(--text-main);">
+            <div style="display:flex; gap:1rem; align-items:center;">
+                <span style="font-weight:600; color:var(--text-muted)">Sesión Activa:</span>
+                <div id="activeUsersContainer" style="display:flex; gap:0.5rem; flex-wrap:wrap;"></div>
+                <button id="btnAddCoworker" class="btn btn-outline"
+                    style="color:var(--primary-light); border-color:var(--primary-light); padding:0.2rem 0.5rem; font-size:0.8rem; border-style:dashed;">+
+                    Agregar Trabajador</button>
+            </div>
+            <div style="display:flex; gap:0.5rem;">
+                <button id="btnChangePassword" class="btn btn-outline"
+                    style="color:var(--text-muted); border-color:#ccc; padding:0.3rem 0.6rem; font-size:0.85rem;"><i
+                        class="fa-solid fa-key"></i> Contraseña</button>
+                <button id="btnLogout" class="btn btn-outline"
+                    style="color:#ef4444; border-color:#ef4444; padding:0.3rem 0.6rem; font-size:0.85rem;"><i
+                        class="fa-solid fa-arrow-right-from-bracket"></i> Salir</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== NOVEDADES PANEL ===== -->
+    <!-- NOVEDADES_START: líneas 214–243 (dentro de #novedades-panel) -->
+    <div class="container novedades-wrapper" id="novedades-panel">
+        <div class="novedades-card">
+            <div class="novedades-header">
+                <span class="novedades-badge"><i class="fa-solid fa-bolt"></i> NUEVO</span>
+                <h2 class="novedades-title">Novedades de esta versión</h2>
+                <button class="novedades-toggle" id="btnToggleNovedades" title="Minimizar/Expandir">
+                    <i class="fa-solid fa-chevron-up" id="novedadesChevron"></i>
+                </button>
+            </div>
+            <div class="novedades-body" id="novedadesBody">
+                <ul class="novedades-list">
+                    <li><i class="fa-solid fa-bookmark" style="color:var(--primary-light)"></i>
+                        <strong>Apartado:</strong> Nueva sección para registrar equipos apartados con adelanto y
+                        seguimiento de estado.</li>
+                    <li><i class="fa-solid fa-box-archive" style="color:var(--primary-light)"></i>
+                        <strong>Encargos:</strong> Registra pedidos de equipos con número de contacto y anticipo.</li>
+                    <li><i class="fa-solid fa-palette" style="color:var(--primary-light)"></i> <strong>Temas:</strong>
+                        Elige entre 4 temas visuales desde el botón <em>Tema</em> en la barra superior (Aún en mantenimiento).</li>
+                    <li><i class="fa-solid fa-check-double" style="color:var(--status-done)"></i> Estados
+                        <strong>Concluido</strong> y <strong>Cancelado</strong> en Apartados y Encargos, con impresión
+                        de ticket.</li>
+                    <li><i class="fa-solid fa-print" style="color:var(--text-muted)"></i> xd</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    <!-- NOVEDADES_END -->
+
+    <main class="container">
+
+        <!-- PESTAÑA FACTURAS -->
+        <div id="tab-facturas" class="tab-content active">
+            <!-- Dashboard Stats Facturas -->
+            <section class="dashboard" style="grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));">
+                <div class="stat-card">
+                    <i class="fa-solid fa-check-circle done-icon"></i>
+                    <div class="stat-info">
+                        <h3>Realizadas</h3>
+                        <p id="countDoneFacturas">0</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <i class="fa-solid fa-xmark-circle cancelled-icon"></i>
+                    <div class="stat-info">
+                        <h3>Canceladas</h3>
+                        <p id="countCancelledFacturas">0</p>
+                    </div>
+                </div>
+            </section>
+
+            <div class="grid-layout">
+                <section class="form-section">
+                    <h2><i class="fa-solid fa-file-invoice-dollar"></i> Nueva Factura Telcel</h2>
+                    <form id="ticketFormFactura">
+                        <div class="form-group">
+                            <label for="clientNameFactura">Nombre del Cliente</label>
+                            <input type="text" id="clientNameFactura" required placeholder="Nombre completo">
+                        </div>
+                        <div class="form-group">
+                            <label for="clientPhone">Número de teléfono</label>
+                            <input type="tel" id="clientPhone" required placeholder="Ej: 555 123 4567">
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="tiendaFactura">Tienda</label>
+                                <select id="tiendaFactura" required>
+                                    <option value="">Seleccione una tienda</option>
+                                    <option value="Matriz">Matriz</option>
+                                    <option value="Sunny">Sunny</option>
+                                    <option value="Hospital">Hospital</option>
+                                    <option value="David">David</option>
+                                    <option value="Portal">Portal</option>
+                                    <option value="Coppel">Coppel</option>
+                                    <option value="TestStore">TestStore</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="atendioFactura">Atendió</label>
+                                <select id="atendioFactura" required>
+                                    <option value="">Seleccione personal</option>
+                                    <option value="Ángel">Ángel</option>
+                                    <option value="Karen">Karen</option>
+                                    <option value="Yatziri">Yatziri</option>
+                                    <option value="Nicolás">Nicolás</option>
+                                    <option value="Eduardo">Eduardo</option>
+                                    <option value="Fernanda">Fernanda</option>
+                                    <option value="Yamileth">Yamileth</option>
+                                    <option value="Saúl">Saúl</option>
+                                    <option value="Mayra">Mayra</option>
+                                    <option value="Adrián">Adrián</option>
+                                    <option value="Joshua">Joshua</option>
+                                    <option value="Néstor">Néstor</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="cobro-section">
+                            <h3 class="section-title"><i class="fa-solid fa-money-bill-wave"></i> Apartado para el Cobro
+                            </h3>
+                            <div class="form-group">
+                                <label for="costTotalFactura">Costo Total ($)</label>
+                                <input type="number" step="0.01" min="0" id="costTotalFactura" required
+                                    placeholder="0.00">
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary w-full">Crear Ticket de Factura</button>
+                    </form>
+                </section>
+
+                <section class="tickets-section">
+                    <div class="tickets-header" style="margin-bottom: 1rem;">
+                        <h2><i class="fa-solid fa-list"></i> Registro de Facturas</h2>
+                        <div style="display:flex; gap: 1rem; align-items: center;">
+                            <button class="btn btn-outline-danger" id="btnDeleteOldFacturas"
+                                title="Eliminar las de hace más de 1 mes"
+                                style="padding: 0.5rem 1rem; font-size:0.85rem;">
+                                <i class="fa-solid fa-trash-clock"></i> Limpiar +1 mes
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Búsqueda Facturas -->
+                    <div class="search-panel">
+                        <div class="search-panel-title">
+                            <i class="fa-solid fa-magnifying-glass"></i> Buscar facturas
+                        </div>
+                        <div class="search-grid">
+                            <div class="search-field">
+                                <label class="search-label">
+                                    <i class="fa-solid fa-calendar-day"></i> Fecha o nombre del cliente
+                                </label>
+                                <div class="search-input-wrap">
+                                    <i class="fa-solid fa-search search-icon-inner"></i>
+                                    <input type="text" id="searchInputFacturas" placeholder="Ej: 21/04/2026 o nombre..."
+                                        class="search-input">
+                                    <button type="button" class="search-clear-btn" id="clearSearchFacturas"
+                                        title="Limpiar búsqueda">&#x2715;</button>
+                                </div>
+                            </div>
+                            <div class="search-field admin-search-option" style="display:none;">
+                                <label class="search-label">
+                                    <i class="fa-solid fa-store"></i> Tienda de origen
+                                </label>
+                                <select id="searchStoreFacturas" class="search-select">
+                                    <option value="">Todas las tiendas</option>
+                                    <option value="Matriz">Matriz</option>
+                                    <option value="Sunny">Sunny</option>
+                                    <option value="Hospital">Hospital</option>
+                                    <option value="David">David</option>
+                                    <option value="Portal">Portal</option>
+                                    <option value="Coppel">Coppel</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tickets-container" id="ticketsContainerFacturas"></div>
+                </section>
+            </div>
+        </div>
+
+        <!-- PESTAÑA REPARACIONES -->
+        <div id="tab-reparaciones" class="tab-content">
+            <!-- Dashboard Stats Reparaciones -->
+            <section class="dashboard">
+                <div class="stat-card">
+                    <i class="fa-solid fa-clock pending-icon"></i>
+                    <div class="stat-info">
+                        <h3>Pendientes</h3>
+                        <p id="countPendingReparaciones">0</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <i class="fa-solid fa-check-circle done-icon"></i>
+                    <div class="stat-info">
+                        <h3>Realizadas</h3>
+                        <p id="countDoneReparaciones">0</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <i class="fa-solid fa-xmark-circle cancelled-icon"></i>
+                    <div class="stat-info">
+                        <h3>Canceladas</h3>
+                        <p id="countCancelledReparaciones">0</p>
+                    </div>
+                </div>
+            </section>
+
+            <div class="grid-layout">
+                <section class="form-section">
+                    <h2><i class="fa-solid fa-screwdriver-wrench"></i> Nueva Reparación</h2>
+                    <form id="ticketFormReparacion">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="clientNameReparacion">Nombre del Cliente</label>
+                                <input type="text" id="clientNameReparacion" required placeholder="Nombre completo">
+                            </div>
+                            <div class="form-group">
+                                <label for="deviceModel">Modelo del equipo</label>
+                                <input type="text" id="deviceModel" required placeholder="Ej: iPhone 13, Moto G50...">
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="clientPhoneReparacion">Número de teléfono del cliente</label>
+                            <div style="display:flex; gap:0.75rem; align-items:center;">
+                                <input type="tel" id="clientPhoneReparacion" placeholder="Ej: 555 123 4567"
+                                    style="flex:1;">
+                                <label
+                                    style="display:flex; align-items:center; gap:0.4rem; white-space:nowrap; font-weight:500; color:var(--text-muted); cursor:pointer; margin-bottom:0;">
+                                    <input type="checkbox" id="noPhoneReparacion"
+                                        style="width:16px; height:16px; cursor:pointer;"> Sin teléfono
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="repairType">Tipo de reparación</label>
+                            <input type="text" id="repairType" required
+                                placeholder="Ej: Cambio de pantalla, Centro de carga...">
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="tiendaReparacion">Tienda</label>
+                                <select id="tiendaReparacion" required>
+                                    <option value="">Seleccione una tienda</option>
+                                    <option value="Matriz">Matriz</option>
+                                    <option value="Sunny">Sunny</option>
+                                    <option value="Hospital">Hospital</option>
+                                    <option value="David">David</option>
+                                    <option value="Portal">Portal</option>
+                                    <option value="Coppel">Coppel</option>
+                                    <option value="TestStore">TestStore</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="atendioReparacion">Atendió</label>
+                                <select id="atendioReparacion" required>
+                                    <option value="">Seleccione personal</option>
+                                    <option value="Ángel">Ángel</option>
+                                    <option value="Karen">Karen</option>
+                                    <option value="Yatziri">Yatziri</option>
+                                    <option value="Nicolás">Nicolás</option>
+                                    <option value="Eduardo">Eduardo</option>
+                                    <option value="Fernanda">Fernanda</option>
+                                    <option value="Yamileth">Yamileth</option>
+                                    <option value="Saúl">Saúl</option>
+                                    <option value="Mayra">Mayra</option>
+                                    <option value="Adrián">Adrián</option>
+                                    <option value="Joshua">Joshua</option>
+                                    <option value="Néstor">Néstor</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="cobro-section">
+                            <h3 class="section-title"><i class="fa-solid fa-money-bill-wave"></i> Apartado para el Cobro
+                            </h3>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="costTotalReparacion">Costo Total ($)</label>
+                                    <input type="number" step="0.01" min="0" id="costTotalReparacion" required
+                                        placeholder="0.00">
+                                </div>
+                                <div class="form-group">
+                                    <label for="costAdvanceReparacion">Anticipo ($)</label>
+                                    <input type="number" step="0.01" min="0" id="costAdvanceReparacion"
+                                        placeholder="0.00">
+                                </div>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary w-full">Crear Ticket de Reparación</button>
+                    </form>
+                </section>
+
+                <section class="tickets-section">
+                    <div class="tickets-header" style="margin-bottom: 1rem;">
+                        <h2><i class="fa-solid fa-list"></i> Registro de Reparaciones</h2>
+                    </div>
+
+                    <!-- Búsqueda Reparaciones -->
+                    <div class="search-panel">
+                        <div class="search-panel-title">
+                            <i class="fa-solid fa-magnifying-glass"></i> Buscar reparaciones
+                        </div>
+                        <div class="search-grid">
+                            <div class="search-field">
+                                <label class="search-label">
+                                    <i class="fa-solid fa-calendar-day"></i> Fecha o nombre del cliente
+                                </label>
+                                <div class="search-input-wrap">
+                                    <i class="fa-solid fa-search search-icon-inner"></i>
+                                    <input type="text" id="searchInputReparaciones"
+                                        placeholder="Ej: 21/04/2026 o nombre..." class="search-input">
+                                    <button type="button" class="search-clear-btn" id="clearSearchReparaciones"
+                                        title="Limpiar búsqueda">&#x2715;</button>
+                                </div>
+                            </div>
+                            <div class="search-field">
+                                <label class="search-label">
+                                    <i class="fa-solid fa-filter"></i> Estado
+                                </label>
+                                <select id="filterStatusReparaciones" class="search-select">
+                                    <option value="Todos">Todos los estados</option>
+                                    <option value="Pendiente">Solo Pendientes</option>
+                                    <option value="Realizado">Solo Realizadas</option>
+                                    <option value="Cancelado">Solo Canceladas</option>
+                                </select>
+                            </div>
+                            <div class="search-field admin-search-option" style="display:none;">
+                                <label class="search-label">
+                                    <i class="fa-solid fa-store"></i> Tienda de origen
+                                </label>
+                                <select id="searchStoreReparaciones" class="search-select">
+                                    <option value="">Todas las tiendas</option>
+                                    <option value="Matriz">Matriz</option>
+                                    <option value="Sunny">Sunny</option>
+                                    <option value="Hospital">Hospital</option>
+                                    <option value="David">David</option>
+                                    <option value="Portal">Portal</option>
+                                    <option value="Coppel">Coppel</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tickets-container" id="ticketsContainerReparaciones"></div>
+                    <button class="btn btn-outline btn-clear-all" id="btnClearCompletedReparaciones"
+                        style="width:100%; margin-top: 1rem;">Limpiar Realizadas/Canceladas</button>
+                </section>
+            </div>
+        </div>
+
+        <!-- PESTAÑA APARTADO -->
+        <div id="tab-apartado" class="tab-content">
+            <!-- Dashboard Stats Apartado -->
+            <section class="dashboard">
+                <div class="stat-card">
+                    <i class="fa-solid fa-clock pending-icon"></i>
+                    <div class="stat-info">
+                        <h3>Pendientes</h3>
+                        <p id="countPendingApartado">0</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <i class="fa-solid fa-check-circle done-icon"></i>
+                    <div class="stat-info">
+                        <h3>Concluidos</h3>
+                        <p id="countDoneApartado">0</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <i class="fa-solid fa-xmark-circle cancelled-icon"></i>
+                    <div class="stat-info">
+                        <h3>Cancelados</h3>
+                        <p id="countCancelledApartado">0</p>
+                    </div>
+                </div>
+            </section>
+
+            <div class="grid-layout">
+                <section class="form-section">
+                    <h2><i class="fa-solid fa-bookmark"></i> Nuevo Apartado</h2>
+                    <form id="ticketFormApartado">
+                        <div class="form-group">
+                            <label for="clientNameApartado">Nombre del Cliente</label>
+                            <input type="text" id="clientNameApartado" required placeholder="Nombre completo">
+                        </div>
+                        <div class="form-group">
+                            <label for="equipoApartado">Equipo Apartado</label>
+                            <input type="text" id="equipoApartado" required
+                                placeholder="Ej: iPhone 15 Pro, Samsung S24...">
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="tiendaApartado">Tienda</label>
+                                <select id="tiendaApartado" required>
+                                    <option value="">Seleccione una tienda</option>
+                                    <option value="Matriz">Matriz</option>
+                                    <option value="Sunny">Sunny</option>
+                                    <option value="Hospital">Hospital</option>
+                                    <option value="David">David</option>
+                                    <option value="Portal">Portal</option>
+                                    <option value="Coppel">Coppel</option>
+                                    <option value="TestStore">TestStore</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="atendioApartado">Atendió</label>
+                                <select id="atendioApartado" required>
+                                    <option value="">Seleccione personal</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="cobro-section">
+                            <h3 class="section-title"><i class="fa-solid fa-money-bill-wave"></i> Cobro</h3>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="costoApartado">Costo Total del Equipo ($)</label>
+                                    <input type="number" step="0.01" min="0" id="costoApartado" required
+                                        placeholder="0.00">
+                                </div>
+                                <div class="form-group">
+                                    <label for="adelantoApartado">Adelanto de Apartado ($)</label>
+                                    <input type="number" step="0.01" min="0" id="adelantoApartado" placeholder="0.00">
+                                </div>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-full">Crear Ticket de Apartado</button>
+                    </form>
+                </section>
+
+                <section class="tickets-section">
+                    <div class="tickets-header" style="margin-bottom: 1rem;">
+                        <h2><i class="fa-solid fa-list"></i> Registro de Apartados</h2>
+                    </div>
+
+                    <!-- Búsqueda Apartado -->
+                    <div class="search-panel">
+                        <div class="search-panel-title">
+                            <i class="fa-solid fa-magnifying-glass"></i> Buscar apartados
+                        </div>
+                        <div class="search-grid">
+                            <div class="search-field">
+                                <label class="search-label">
+                                    <i class="fa-solid fa-calendar-day"></i> Fecha o nombre del cliente
+                                </label>
+                                <div class="search-input-wrap">
+                                    <i class="fa-solid fa-search search-icon-inner"></i>
+                                    <input type="text" id="searchInputApartado" placeholder="Ej: 21/04/2026 o nombre..."
+                                        class="search-input">
+                                    <button type="button" class="search-clear-btn" id="clearSearchApartado"
+                                        title="Limpiar búsqueda">&#x2715;</button>
+                                </div>
+                            </div>
+                            <div class="search-field">
+                                <label class="search-label">
+                                    <i class="fa-solid fa-filter"></i> Estado
+                                </label>
+                                <select id="filterStatusApartado" class="search-select">
+                                    <option value="Todos">Todos los estados</option>
+                                    <option value="Pendiente">Solo Pendientes</option>
+                                    <option value="Concluido">Solo Concluidos</option>
+                                    <option value="Cancelado">Solo Cancelados</option>
+                                </select>
+                            </div>
+                            <div class="search-field admin-search-option" style="display:none;">
+                                <label class="search-label">
+                                    <i class="fa-solid fa-store"></i> Tienda de origen
+                                </label>
+                                <select id="searchStoreApartado" class="search-select">
+                                    <option value="">Todas las tiendas</option>
+                                    <option value="Matriz">Matriz</option>
+                                    <option value="Sunny">Sunny</option>
+                                    <option value="Hospital">Hospital</option>
+                                    <option value="David">David</option>
+                                    <option value="Portal">Portal</option>
+                                    <option value="Coppel">Coppel</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tickets-container" id="ticketsContainerApartado"></div>
+                    <button class="btn btn-outline btn-clear-all" id="btnClearCompletedApartado"
+                        style="width:100%; margin-top: 1rem;">Limpiar Concluidos/Cancelados</button>
+                </section>
+            </div>
+        </div>
+
+        <!-- PESTAÑA ENCARGOS -->
+        <div id="tab-encargos" class="tab-content">
+            <!-- Dashboard Stats Encargos -->
+            <section class="dashboard">
+                <div class="stat-card">
+                    <i class="fa-solid fa-clock pending-icon"></i>
+                    <div class="stat-info">
+                        <h3>Pendientes</h3>
+                        <p id="countPendingEncargos">0</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <i class="fa-solid fa-check-circle done-icon"></i>
+                    <div class="stat-info">
+                        <h3>Concluidos</h3>
+                        <p id="countDoneEncargos">0</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <i class="fa-solid fa-xmark-circle cancelled-icon"></i>
+                    <div class="stat-info">
+                        <h3>Cancelados</h3>
+                        <p id="countCancelledEncargos">0</p>
+                    </div>
+                </div>
+            </section>
+
+            <div class="grid-layout">
+                <section class="form-section">
+                    <h2><i class="fa-solid fa-box-archive"></i> Nuevo Encargo</h2>
+                    <form id="ticketFormEncargo">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="clientNameEncargo">Nombre del Cliente</label>
+                                <input type="text" id="clientNameEncargo" required placeholder="Nombre completo">
+                            </div>
+                            <div class="form-group">
+                                <label for="contactoEncargo">Número de Contacto</label>
+                                <input type="tel" id="contactoEncargo" placeholder="Ej: 555 123 4567">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="equipoEncargo">Equipo a Encargar</label>
+                            <input type="text" id="equipoEncargo" required
+                                placeholder="Ej: iPhone 15 Pro Max 256GB Negro...">
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="tiendaEncargo">Tienda</label>
+                                <select id="tiendaEncargo" required>
+                                    <option value="">Seleccione una tienda</option>
+                                    <option value="Matriz">Matriz</option>
+                                    <option value="Sunny">Sunny</option>
+                                    <option value="Hospital">Hospital</option>
+                                    <option value="David">David</option>
+                                    <option value="Portal">Portal</option>
+                                    <option value="Coppel">Coppel</option>
+                                    <option value="TestStore">TestStore</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="atendioEncargo">Atendió</label>
+                                <select id="atendioEncargo" required>
+                                    <option value="">Seleccione personal</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="cobro-section">
+                            <h3 class="section-title"><i class="fa-solid fa-money-bill-wave"></i> Cobro</h3>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="costoEncargo">Costo Total ($)</label>
+                                    <input type="number" step="0.01" min="0" id="costoEncargo" required
+                                        placeholder="0.00">
+                                </div>
+                                <div class="form-group">
+                                    <label for="anticipoEncargo">Anticipo ($)</label>
+                                    <input type="number" step="0.01" min="0" id="anticipoEncargo" placeholder="0.00">
+                                </div>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-full">Crear Ticket de Encargo</button>
+                    </form>
+                </section>
+
+                <section class="tickets-section">
+                    <div class="tickets-header" style="margin-bottom: 1rem;">
+                        <h2><i class="fa-solid fa-list"></i> Registro de Encargos</h2>
+                    </div>
+
+                    <!-- Búsqueda Encargos -->
+                    <div class="search-panel">
+                        <div class="search-panel-title">
+                            <i class="fa-solid fa-magnifying-glass"></i> Buscar encargos
+                        </div>
+                        <div class="search-grid">
+                            <div class="search-field">
+                                <label class="search-label">
+                                    <i class="fa-solid fa-calendar-day"></i> Fecha o nombre del cliente
+                                </label>
+                                <div class="search-input-wrap">
+                                    <i class="fa-solid fa-search search-icon-inner"></i>
+                                    <input type="text" id="searchInputEncargos" placeholder="Ej: 21/04/2026 o nombre..."
+                                        class="search-input">
+                                    <button type="button" class="search-clear-btn" id="clearSearchEncargos"
+                                        title="Limpiar búsqueda">&#x2715;</button>
+                                </div>
+                            </div>
+                            <div class="search-field">
+                                <label class="search-label">
+                                    <i class="fa-solid fa-filter"></i> Estado
+                                </label>
+                                <select id="filterStatusEncargos" class="search-select">
+                                    <option value="Todos">Todos los estados</option>
+                                    <option value="Pendiente">Solo Pendientes</option>
+                                    <option value="Concluido">Solo Concluidos</option>
+                                    <option value="Cancelado">Solo Cancelados</option>
+                                </select>
+                            </div>
+                            <div class="search-field admin-search-option" style="display:none;">
+                                <label class="search-label">
+                                    <i class="fa-solid fa-store"></i> Tienda de origen
+                                </label>
+                                <select id="searchStoreEncargos" class="search-select">
+                                    <option value="">Todas las tiendas</option>
+                                    <option value="Matriz">Matriz</option>
+                                    <option value="Sunny">Sunny</option>
+                                    <option value="Hospital">Hospital</option>
+                                    <option value="David">David</option>
+                                    <option value="Portal">Portal</option>
+                                    <option value="Coppel">Coppel</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tickets-container" id="ticketsContainerEncargos"></div>
+                    <button class="btn btn-outline btn-clear-all" id="btnClearCompletedEncargos"
+                        style="width:100%; margin-top: 1rem;">Limpiar Concluidos/Cancelados</button>
+                </section>
+            </div>
+        </div>
+
+        <!-- PESTAÑA ADMIN -->
+        <div id="tab-admin" class="tab-content">
+            <section class="form-section">
+                <h2><i class="fa-solid fa-shield-halved"></i> Panel de Administración</h2>
+                <div class="grid-layout">
+                    <div>
+                        <h3 class="section-title">Gestión de Usuarios</h3>
+                        <div id="usersContainer" class="user-list"></div>
+                    </div>
+                    <div>
+                        <h3 class="section-title">Ajustes del Sistema</h3>
+                        <div class="ticket-card" style="margin-bottom: 1rem;">
+                            <h4>Tienda Asignada: <span id="adminCurrentStore" style="color:var(--primary-blue)"></span>
+                            </h4>
+                            <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1rem;">La tienda
+                                asignada a este equipo físico.</p>
+                            <button id="btnResetStore" class="btn btn-outline-danger w-full"><i
+                                    class="fa-solid fa-rotate-right"></i> Desvincular Tienda</button>
+                        </div>
+                        <div class="ticket-card">
+                            <h4>Zona de Peligro</h4>
+                            <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1rem;">Borrar todos los
+                                datos locales (Facturas y Reparaciones).</p>
+                            <button id="btnResetDB" class="btn btn-delete w-full"><i
+                                    class="fa-solid fa-triangle-exclamation"></i> Borrar Base de Datos</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+    </main>
+
+    <!-- ===== MENSAJE SECRETO PANEL ===== -->
+    <div class="container secreto-wrapper">
+        <div class="secreto-card" id="secretoCard">
+            <div class="secreto-header" id="secretoHeaderTrigger" title="Mensaje Secreto">
+                <i class="fa-solid fa-lock secreto-lock-icon" id="secretoLockIcon"></i>
+                <span class="secreto-title" id="secretoTitleText">· · ·</span>
+                <i class="fa-solid fa-chevron-down secreto-chevron" id="secretoChevron"></i>
+            </div>
+            <div class="secreto-body hidden" id="secretoBody">
+                <!-- Public: always visible messages -->
+                <div class="secreto-messages" id="secretoMessages"></div>
+
+                <!-- Compose: gated by key -->
+                <div class="secreto-compose-area">
+                    <!-- Locked state -->
+                    <div class="secreto-gate" id="secretoGate">
+                        <div class="secreto-gate-inner">
+                            <p class="secreto-hint"><i class="fa-solid fa-lock"
+                                    style="color:#a78bfa; margin-right:0.4rem;"></i>Pon la clave para dejar un mensaje
+                            </p>
+                            <div class="secreto-input-row">
+                                <input type="password" id="secretoKeyInput" class="secreto-key-input"
+                                    placeholder="Clave secreta" maxlength="10">
+                                <button class="btn btn-primary" id="btnSecretoUnlock" style="padding:0.5rem 1rem;"><i
+                                        class="fa-solid fa-unlock"></i></button>
+                            </div>
+                            <p class="secreto-error hidden" id="secretoError">Clave incorrecta ✗</p>
+                        </div>
+                    </div>
+                    <!-- Unlocked compose -->
+                    <div class="secreto-compose hidden" id="secretoCompose">
+                        <input type="text" id="secretoMsgInput" class="secreto-msg-input"
+                            placeholder="Escribe un mensaje anónimo..." maxlength="200">
+                        <button class="btn btn-primary" id="btnSecretoSend" style="padding:0.5rem 1rem;"><i
+                                class="fa-solid fa-paper-plane"></i></button>
+                    </div>
+                    <p class="secreto-anon-note"><i class="fa-solid fa-ghost"></i> Anónimo — nadie sabe quién escribe
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <script type="module" src="app.js"></script>
+</body>
+
+</html>

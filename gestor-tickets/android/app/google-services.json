@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "461224250452",
+    "firebase_url": "https://realphone-tickets-default-rtdb.firebaseio.com",
+    "project_id": "realphone-tickets",
+    "storage_bucket": "realphone-tickets.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:461224250452:android:831d2554942d24aa45f1c1",
+        "android_client_info": {
+          "package_name": "com.realphone.tickets"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC4g8UDH1WJl9CT7HR5wCKaf057E6xZDI4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

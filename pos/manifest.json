@@ -1,0 +1,19 @@
+{
+    "name": "RealPhone POS",
+    "short_name": "RealPhone POS",
+    "description": "Sistema de Punto de Venta para tiendas de celulares y tecnología. Gestión de productos, tickets, ventas e inventario.",
+    "start_url": "index.html",
+    "display": "standalone",
+    "background_color": "#f0f2f5",
+    "theme_color": "#2563eb",
+    "orientation": "landscape",
+    "icons": [
+        {
+            "src": "favicon.svg",
+            "sizes": "any",
+            "type": "image/svg+xml"
+        }
+    ],
+    "categories": ["business", "utilities"],
+    "lang": "es-MX"
+}
