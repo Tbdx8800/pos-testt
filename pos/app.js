@@ -7,10 +7,21 @@
 
     // ==================== DATOS INICIALES ====================
     const defaultUsers = [
-        { id: 'u1', username: 'admin',   password: '1234', role: 'admin',   fullName: 'Administrador Principal',  branch: 'principal', active: true },
-        { id: 'u2', username: 'gerente', password: '1234', role: 'gerente', fullName: 'Gerente de Sucursal',      branch: 'sucursal1', active: true },
-        { id: 'u3', username: 'cajero',  password: '1234', role: 'cajero',  fullName: 'Cajero Demo',              branch: 'principal', active: true }
+        { id: 'u1', username: 'admin',   password: '1234', role: 'admin',   fullName: 'Administrador Principal', branch: 'principal', active: true },
+        { id: 'u2', username: 'gerente', password: '1234', role: 'tester',  fullName: 'Gerente de Sucursal',     branch: 'sucursal1', active: true },
+        { id: 'u3', username: 'cliente', password: '1234', role: 'client',  fullName: 'Cliente Demo',            branch: 'principal', active: true }
     ];
+
+    // ==================== ROLES ====================
+    function isAdminOrTester() {
+        return currentUser && (currentUser.role === 'admin' || currentUser.role === 'tester');
+    }
+    function isAdmin() {
+        return currentUser && currentUser.role === 'admin';
+    }
+    function isTester() {
+        return currentUser && currentUser.role === 'tester';
+    }
 
     const defaultProducts = [
         { id: 'p1', sku: 'FUNDA-001', name: 'Funda Genérica para Celular',      category: 'fundas', cost: 30,  price: 99,   stock: 50 },
@@ -141,11 +152,26 @@
         currentBranch = user.branch;
         document.getElementById('branchSelect').value = currentBranch;
         currentUserDisplay.innerHTML =
-            '<i class="fas fa-user"></i> ' + user.fullName + ' (' + user.role + ')';
+            '<i class="fas fa-user"></i> Le atiende: ' + user.fullName;
 
         loginOverlay.classList.add('hidden');
         posContainer.style.display = 'flex';
+        posContainer.style.paddingTop = '52px'; // Header height offset
         loginError.textContent = '';
+
+        // Show header
+        const posHdr = document.getElementById('posHeader');
+        if (posHdr) {
+            posHdr.style.display = 'flex';
+            const uEl = document.getElementById('posHeaderUser');
+            if (uEl) uEl.textContent = '| ' + user.fullName + ' [' + user.role + ']';
+        }
+
+        // Share session with Gestor de Tickets
+        localStorage.setItem('realphone_currentUser1', JSON.stringify(user));
+
+        // Apply permissions UI
+        applyPermissionsUI();
 
         showToast('Bienvenido, ' + user.fullName, 'success');
         renderProducts();
@@ -162,26 +188,61 @@
 
     // Cerrar sesión
     document.getElementById('btnLogout').addEventListener('click', function () {
-        if (!confirm('¿Cerrar sesión actual?')) return;
+        const closeGestor = confirm('¿Cerrar sesión?\n\nPresiona Aceptar para cerrar sesión en AMBOS sistemas (POS y Gestor de Tickets).\nPresiona Cancelar para cerrar solo en el POS.');
         currentUser = null;
         ticketItems = [];
         loginOverlay.classList.remove('hidden');
         posContainer.style.display = 'none';
-        document.getElementById('loginUser').value = 'admin';
-        document.getElementById('loginPass').value = '1234';
+        posContainer.style.paddingTop = '0';
+        document.getElementById('loginUser').value = '';
+        document.getElementById('loginPass').value = '';
+        const posHdr = document.getElementById('posHeader');
+        if (posHdr) posHdr.style.display = 'none';
+        if (closeGestor) {
+            localStorage.removeItem('realphone_currentUser1');
+        }
         showToast('Sesión cerrada', 'info');
     });
 
-    // Cambio de sucursal (solo admin)
+    // Cambio de sucursal (solo tester)
     document.getElementById('branchSelect').addEventListener('change', function (e) {
-        if (currentUser && currentUser.role === 'admin') {
+        if (currentUser && currentUser.role === 'tester') {
             currentBranch = e.target.value;
             showToast('Sucursal cambiada: ' + currentBranch, 'info');
         } else if (currentUser) {
             e.target.value = currentBranch;
-            showToast('Solo administradores pueden cambiar de sucursal', 'warning');
+            showToast('Solo el Tester puede cambiar la sucursal asignada', 'warning');
         }
     });
+
+    // ==================== PERMISSIONS UI ====================
+    function applyPermissionsUI() {
+        const isPriv = isAdminOrTester();
+        // Inventory button
+        const btnInv = document.getElementById('btnInventario');
+        if (btnInv) btnInv.style.display = isPriv ? '' : 'none';
+        // Add product button
+        const btnAdd = document.getElementById('btnAddProduct');
+        if (btnAdd) btnAdd.style.display = isPriv ? '' : 'none';
+        // Category management
+        document.querySelectorAll('.category-tab[data-cat-admin]').forEach(b => b.style.display = isPriv ? '' : 'none');
+        // Requests button for clients
+        let clientBtn = document.getElementById('btnClientRequest');
+        if (!clientBtn && !isPriv && currentUser) {
+            clientBtn = document.createElement('button');
+            clientBtn.id = 'btnClientRequest';
+            clientBtn.className = 'action-btn';
+            clientBtn.style.cssText = 'border-color:rgba(99,102,241,0.3); color:#6366f1; background:rgba(99,102,241,0.08);';
+            clientBtn.innerHTML = '<i class="fas fa-box-open"></i> Solicitar Inventario';
+            clientBtn.addEventListener('click', openInvRequestModal);
+            const actBtns = document.querySelector('.action-buttons');
+            if (actBtns) actBtns.appendChild(clientBtn);
+        }
+        if (clientBtn) clientBtn.style.display = isPriv ? 'none' : '';
+        // Pending requests panel for admin/tester
+        const pendingPanel = document.getElementById('pendingInvRequests');
+        if (pendingPanel) pendingPanel.style.display = isPriv ? '' : 'none';
+    }
 
     // ==================== RENDERIZADO DE PRODUCTOS ====================
     function renderProducts(filterText = '') {
@@ -280,7 +341,7 @@
         changeDisplay.textContent  = formatMoney(Math.max(0, pago - total));
     }
 
-    // ==================== COBRAR ====================
+    // ==================== COBRAR + AUTO-PRINT ====================
     document.getElementById('btnCobrar').addEventListener('click', function () {
         if (ticketItems.length === 0) {
             showToast('Agrega productos al ticket antes de cobrar', 'warning');
@@ -308,12 +369,13 @@
         });
 
         // Registrar venta
+        const saleId = 'SALE-' + Date.now();
         const sale = {
-            id:      'SALE-' + Date.now(),
+            id:      saleId,
             date:    new Date().toISOString().slice(0, 10),
             time:    new Date().toLocaleTimeString(),
             branch:  currentBranch,
-            cashier: currentUser.fullName,
+            cashier: currentUser ? currentUser.fullName : 'N/A',
             items:   ticketItems.map(i => ({ ...i })),
             total:   total,
             profit:  ticketItems.reduce((s, i) => s + ((i.price - i.cost) * i.qty), 0),
@@ -325,6 +387,9 @@
 
         showToast('✅ Venta registrada — Ticket #' + ticketCounter + ' — Total: ' + formatMoney(total), 'success');
 
+        // AUTO-PRINT ticket de venta
+        autoPrintSaleTicket(sale, ticketCounter);
+
         // Nuevo ticket
         ticketItems = [];
         paymentInput.value = '';
@@ -333,6 +398,54 @@
         updateTicketDisplay();
         renderProducts(searchInput.value);
     });
+
+    // Auto-print function
+    function autoPrintSaleTicket(sale, ticketNum) {
+        const storeAddresses = {
+            'principal':  'Av. Principal #100, Centro',
+            'sucursal1':  'Calle 5 de Mayo #25, Col. Centro',
+            'sucursal2':  'Blvd. Independencia #430',
+            'sucursal3':  'Av. Juárez #88, Plaza Mayor',
+            'sucursal4':  'Calle Morelos #15, Col. Juárez',
+            'sucursal5':  'Carretera Nacional Km. 12'
+        };
+        const storeNames = {
+            'principal': 'RealPhone Principal',
+            'sucursal1': 'RealPhone Sucursal 1',
+            'sucursal2': 'RealPhone Sucursal 2',
+            'sucursal3': 'RealPhone Sucursal 3',
+            'sucursal4': 'RealPhone Sucursal 4',
+            'sucursal5': 'RealPhone Sucursal 5'
+        };
+        const storeName = storeNames[sale.branch] || sale.branch;
+        const storeAddr = storeAddresses[sale.branch] || '';
+        const itemsHtml = sale.items.map(i =>
+            `<div class="flex-row"><span>${i.qty}x ${i.name}</span><span>$${(i.price * i.qty).toFixed(2)}</span></div>`
+        ).join('');
+        const receiptHTML = `<html><head><title>Ticket #${ticketNum}</title>
+        <style>
+            @page{margin:0} body{font-family:'Courier New',monospace;width:300px;margin:0 auto;color:#000;background:#fff;font-size:14px;padding:10px;box-sizing:border-box;}
+            .header{text-align:center;margin-bottom:10px;} .header h1{font-size:18px;margin:0;font-weight:bold;} .header p{margin:2px 0;font-size:12px;}
+            .divider{border-bottom:1px dashed #000;margin:8px 0;} .flex-row{display:flex;justify-content:space-between;margin-bottom:4px;font-size:13px;}
+            .total{font-weight:bold;font-size:16px;margin-top:8px;border-top:1px dashed #000;padding-top:5px;}
+            .footer{text-align:center;margin-top:16px;font-size:11px;}
+        </style></head>
+        <body onload="setTimeout(function(){window.print();window.close();},300);">
+            <div class="header"><h1>${storeName}</h1><p>by Telcel</p><p style="font-size:10px;">${storeAddr}</p><p>Ticket de Venta #${ticketNum}</p><p>Fecha: ${sale.date} ${sale.time}</p></div>
+            <div class="divider"></div>
+            <div class="flex-row"><span>Le atendió:</span><span>${sale.cashier}</span></div>
+            <div class="flex-row"><span>Sucursal:</span><span>${storeName}</span></div>
+            <div class="divider"></div>
+            ${itemsHtml}
+            <div class="divider"></div>
+            <div class="flex-row total"><span>TOTAL:</span><span>$${sale.total.toFixed(2)}</span></div>
+            <div class="flex-row"><span>Pago con:</span><span>$${sale.payment.toFixed(2)}</span></div>
+            <div class="flex-row"><span>Cambio:</span><span>$${sale.change.toFixed(2)}</span></div>
+            <div class="footer"><p>*** Gracias por su preferencia ***</p><p>Conserve su ticket</p></div>
+        </body></html>`;
+        const w = window.open('', '_blank', 'width=350,height=600');
+        if (w) { w.document.write(receiptHTML); w.document.close(); }
+    }
 
     // ==================== BOTONES DE ACCIÓN ====================
     paymentInput.addEventListener('input', updateTicketDisplay);
@@ -349,9 +462,7 @@
         searchInput.select();
     });
 
-    document.getElementById('btnMayoreo').addEventListener('click', function () {
-        showToast('💼 Modo Mayoreo: 10% descuento en pedidos >5 unidades', 'info');
-    });
+
 
     document.getElementById('btnPendiente').addEventListener('click', function () {
         if (ticketItems.length === 0) { showToast('No hay productos para dejar pendiente', 'warning'); return; }
@@ -383,6 +494,10 @@
 
     // ==================== MODAL DE INVENTARIO ====================
     function openInventoryModal() {
+        if (!isAdminOrTester()) {
+            showToast('Solo administradores o testers pueden abrir el inventario', 'warning');
+            return;
+        }
         inventoryModal.classList.add('active');
         resetImportState();
     }
@@ -404,8 +519,8 @@
 
     document.getElementById('btnInventario').addEventListener('click', openInventoryModal);
     document.getElementById('btnAddProduct').addEventListener('click', function() {
+        if (!isAdminOrTester()) { showToast('Solo administradores o testers pueden agregar productos', 'warning'); return; }
         openInventoryModal();
-        // Activar tab "Agregar Producto"
         document.querySelectorAll('.modal-tab').forEach(t => t.classList.remove('active'));
         document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
         document.querySelector('.modal-tab[data-tab="add"]').classList.add('active');
@@ -413,11 +528,103 @@
         setTimeout(() => document.getElementById('addSku').focus(), 100);
     });
     document.getElementById('btnCloseInventory').addEventListener('click', closeInventoryModal);
-
-    // Cerrar modal al hacer click fuera
     inventoryModal.addEventListener('click', function (e) {
         if (e.target === inventoryModal) closeInventoryModal();
     });
+
+    // ==================== INVENTORY REQUEST MODAL ====================
+    function openInvRequestModal() {
+        const overlay = document.getElementById('invRequestOverlay');
+        if (!overlay) return;
+        const pendingPanel = document.getElementById('pendingInvRequests');
+        if (pendingPanel) pendingPanel.style.display = isAdminOrTester() ? '' : 'none';
+        if (isAdminOrTester()) renderPendingRequests();
+        overlay.style.display = 'flex';
+        overlay.style.flexDirection = 'column';
+        overlay.style.alignItems = 'center';
+        overlay.style.justifyContent = 'center';
+    }
+    function closeInvRequestModal() {
+        const overlay = document.getElementById('invRequestOverlay');
+        if (overlay) overlay.style.display = 'none';
+    }
+    const btnCloseInvReq = document.getElementById('btnCloseInvRequest');
+    if (btnCloseInvReq) btnCloseInvReq.addEventListener('click', closeInvRequestModal);
+    const btnCancelInvReq = document.getElementById('btnCancelInvReq');
+    if (btnCancelInvReq) btnCancelInvReq.addEventListener('click', closeInvRequestModal);
+
+    const btnSubmitInvReq = document.getElementById('btnSubmitInvReq');
+    if (btnSubmitInvReq) btnSubmitInvReq.addEventListener('click', function() {
+        const type = document.getElementById('invReqType').value;
+        const sku  = document.getElementById('invReqSku').value.trim();
+        const qty  = parseInt(document.getElementById('invReqQty').value) || 0;
+        const note = document.getElementById('invReqNote').value.trim();
+        if (!sku || qty <= 0) { showToast('Completa SKU y cantidad', 'warning'); return; }
+        const req = {
+            id: 'req-' + Date.now(),
+            type, sku, qty, note,
+            requestedBy: currentUser ? currentUser.fullName : 'Cliente',
+            requestedAt: new Date().toLocaleString(),
+            status: 'pendiente'
+        };
+        const requests = JSON.parse(localStorage.getItem('realphone_inv_requests') || '[]');
+        requests.push(req);
+        localStorage.setItem('realphone_inv_requests', JSON.stringify(requests));
+        showToast('Solicitud enviada. Un administrador la revisará pronto.', 'success');
+        closeInvRequestModal();
+    });
+
+    function renderPendingRequests() {
+        const list = document.getElementById('invRequestList');
+        if (!list) return;
+        const requests = JSON.parse(localStorage.getItem('realphone_inv_requests') || '[]');
+        const pending = requests.filter(r => r.status === 'pendiente');
+        if (pending.length === 0) {
+            list.innerHTML = '<div style="text-align:center; color:var(--text-secondary); padding:1rem; font-size:0.85rem;">No hay solicitudes pendientes</div>';
+            return;
+        }
+        list.innerHTML = pending.map(r => `
+            <div class="inv-request-item">
+                <div>
+                    <span class="req-type-badge ${r.type}">${r.type.toUpperCase()}</span>
+                    <strong style="margin-left:6px;">${r.sku}</strong> — ${r.qty} uds.
+                    <div style="font-size:0.75rem; color:var(--text-secondary); margin-top:2px;">${r.requestedBy} — ${r.requestedAt}${r.note ? ' — ' + r.note : ''}</div>
+                </div>
+                <div style="display:flex; gap:6px;">
+                    <button class="action-btn" style="font-size:0.75rem; padding:5px 10px; color:var(--success); border-color:rgba(16,185,129,0.3);" onclick="window.approveInvRequest('${r.id}')"><i class="fas fa-check"></i></button>
+                    <button class="action-btn danger" style="font-size:0.75rem; padding:5px 10px;" onclick="window.rejectInvRequest('${r.id}')"><i class="fas fa-times"></i></button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    window.approveInvRequest = function(reqId) {
+        if (!isAdminOrTester()) return;
+        const requests = JSON.parse(localStorage.getItem('realphone_inv_requests') || '[]');
+        const req = requests.find(r => r.id === reqId);
+        if (!req) return;
+        const prod = products.find(p => p.sku.toLowerCase() === req.sku.toLowerCase());
+        if (!prod) { showToast('Producto no encontrado: ' + req.sku, 'error'); return; }
+        if (req.type === 'entrada') prod.stock += req.qty;
+        else prod.stock = Math.max(0, prod.stock - req.qty);
+        saveData();
+        req.status = 'aprobado';
+        localStorage.setItem('realphone_inv_requests', JSON.stringify(requests));
+        renderProducts(searchInput.value);
+        renderPendingRequests();
+        showToast('Solicitud aprobada: ' + req.type + ' de ' + req.qty + ' uds. de ' + req.sku, 'success');
+    };
+
+    window.rejectInvRequest = function(reqId) {
+        if (!isAdminOrTester()) return;
+        const requests = JSON.parse(localStorage.getItem('realphone_inv_requests') || '[]');
+        const req = requests.find(r => r.id === reqId);
+        if (!req) return;
+        req.status = 'rechazado';
+        localStorage.setItem('realphone_inv_requests', JSON.stringify(requests));
+        renderPendingRequests();
+        showToast('Solicitud rechazada', 'info');
+    };
 
     // Tabs del modal
     document.querySelectorAll('.modal-tab').forEach(tab => {
@@ -434,6 +641,7 @@
     // ==================== AGREGAR PRODUCTO (FORMULARIO) ====================
     document.getElementById('addProductForm').addEventListener('submit', function (e) {
         e.preventDefault();
+        if (!isAdminOrTester()) { showToast('Sin permisos para agregar productos', 'warning'); return; }
 
         const sku   = document.getElementById('addSku').value.trim().toUpperCase();
         const name  = document.getElementById('addName').value.trim();
@@ -795,6 +1003,141 @@
         }
     });
 
+    // ==================== TEMA ====================
+    const POS_THEME_KEY = 'realphone_theme';
+    function applyPosTheme(theme) {
+        document.documentElement.setAttribute('data-theme', theme);
+        localStorage.setItem(POS_THEME_KEY, theme);
+        document.querySelectorAll('.theme-option-pos').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.theme === theme);
+        });
+    }
+    applyPosTheme(localStorage.getItem(POS_THEME_KEY) || 'light');
+
+    const btnThemePos = document.getElementById('btnThemePos');
+    const themeDropPos = document.getElementById('themeDropdownPos');
+    if (btnThemePos) {
+        btnThemePos.addEventListener('click', (e) => {
+            e.stopPropagation();
+            themeDropPos.style.display = themeDropPos.style.display === 'none' ? 'block' : 'none';
+        });
+    }
+    document.querySelectorAll('.theme-option-pos').forEach(btn => {
+        btn.addEventListener('click', () => {
+            applyPosTheme(btn.dataset.theme);
+            if (themeDropPos) themeDropPos.style.display = 'none';
+        });
+    });
+    document.addEventListener('click', (e) => {
+        if (themeDropPos && themeDropPos.style.display !== 'none') {
+            if (!themeDropPos.contains(e.target) && e.target !== btnThemePos) {
+                themeDropPos.style.display = 'none';
+            }
+        }
+    });
+
+    // ==================== NAVEGACIÓN AL GESTOR ====================
+    const btnGotoGestor = document.getElementById('btnGotoGestor');
+    if (btnGotoGestor) {
+        btnGotoGestor.addEventListener('click', function() {
+            // Ensure session is shared
+            if (currentUser) {
+                localStorage.setItem('realphone_currentUser1', JSON.stringify(currentUser));
+            }
+            // Open Gestor in new tab or same window
+            const gestorPath = '../gestor-tickets/index.html';
+            window.open(gestorPath, '_blank');
+        });
+    }
+
+    // ==================== VIDEOTUTORIAL CON VOZ ZEPHYR ====================
+    const tutorialOverlay = document.getElementById('tutorialOverlay');
+    const btnTutorial    = document.getElementById('btnTutorial');
+    const btnCloseTut    = document.getElementById('btnCloseTutorial');
+    const btnTutNext     = document.getElementById('btnTutNext');
+    const btnTutPrev     = document.getElementById('btnTutPrev');
+    const btnTutSpeak    = document.getElementById('btnTutSpeak');
+    const btnTutStop     = document.getElementById('btnTutStop');
+    const tutProgress    = document.getElementById('tutorialProgress');
+    const voiceStatusEl  = document.getElementById('tutorialVoiceStatus');
+    const voiceStatusTxt = document.getElementById('voiceStatusText');
+
+    let tutStep = 0;
+    const TUTORIAL_STEPS = document.querySelectorAll('.tutorial-step');
+    const TOTAL_STEPS = TUTORIAL_STEPS.length;
+
+    function openTutorial() {
+        tutStep = 0;
+        tutorialOverlay.classList.add('active');
+        renderTutStep();
+    }
+    function closeTutorial() {
+        tutorialOverlay.classList.remove('active');
+        stopTutVoice();
+    }
+    function renderTutStep() {
+        TUTORIAL_STEPS.forEach((s, i) => s.classList.toggle('active', i === tutStep));
+        if (tutProgress) tutProgress.textContent = `Paso ${tutStep + 1} / ${TOTAL_STEPS}`;
+        if (btnTutPrev) btnTutPrev.disabled = tutStep === 0;
+        if (btnTutNext) btnTutNext.textContent = tutStep === TOTAL_STEPS - 1 ? 'Finalizar' : 'Siguiente ›';
+        stopTutVoice();
+        speakTutStep();
+    }
+
+    function getZephyrVoice() {
+        const voices = window.speechSynthesis ? window.speechSynthesis.getVoices() : [];
+        // Try to find Zephyr or best Spanish voice
+        return voices.find(v => v.name.toLowerCase().includes('zephyr')) ||
+               voices.find(v => v.lang.startsWith('es') && v.name.toLowerCase().includes('fem')) ||
+               voices.find(v => v.lang.startsWith('es')) ||
+               voices[0];
+    }
+
+    function speakTutStep() {
+        if (!window.speechSynthesis) return;
+        const activeStep = TUTORIAL_STEPS[tutStep];
+        if (!activeStep) return;
+        const bodyEl = activeStep.querySelector('.tutorial-step-body');
+        if (!bodyEl) return;
+        const text = bodyEl.innerText || bodyEl.textContent;
+        const utt = new SpeechSynthesisUtterance(text);
+        utt.lang = 'es-MX';
+        utt.rate = 0.92;
+        utt.pitch = 1.1;
+        const voice = getZephyrVoice();
+        if (voice) utt.voice = voice;
+        utt.onstart = () => {
+            if (voiceStatusEl) voiceStatusEl.classList.add('speaking');
+            if (voiceStatusTxt) voiceStatusTxt.textContent = 'Narrando con Zephyr...';
+        };
+        utt.onend = () => {
+            if (voiceStatusEl) voiceStatusEl.classList.remove('speaking');
+            if (voiceStatusTxt) voiceStatusTxt.textContent = 'Voz lista';
+        };
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.speak(utt);
+    }
+
+    function stopTutVoice() {
+        if (window.speechSynthesis) window.speechSynthesis.cancel();
+        if (voiceStatusEl) voiceStatusEl.classList.remove('speaking');
+        if (voiceStatusTxt) voiceStatusTxt.textContent = 'Voz lista';
+    }
+
+    if (btnTutorial) btnTutorial.addEventListener('click', openTutorial);
+    if (btnCloseTut) btnCloseTut.addEventListener('click', closeTutorial);
+    if (btnTutNext) btnTutNext.addEventListener('click', () => {
+        if (tutStep < TOTAL_STEPS - 1) { tutStep++; renderTutStep(); }
+        else closeTutorial();
+    });
+    if (btnTutPrev) btnTutPrev.addEventListener('click', () => {
+        if (tutStep > 0) { tutStep--; renderTutStep(); }
+    });
+    if (btnTutSpeak) btnTutSpeak.addEventListener('click', speakTutStep);
+    if (btnTutStop)  btnTutStop.addEventListener('click', stopTutVoice);
+    // Load voices async
+    if (window.speechSynthesis) window.speechSynthesis.onvoiceschanged = function() {};
+
     // ==================== ATAJOS DE TECLADO ====================
     let shortcutPanelVisible = false;
 
@@ -834,13 +1177,10 @@
         if (!isFKey && isTyping(e)) return;
 
         switch (e.key) {
-            case 'F1':
-                e.preventDefault();
-                document.getElementById('btnMayoreo').click();
-                break;
             case 'F3':
                 e.preventDefault();
-                showToast('F3: Registrar salida de inventario', 'info');
+                if (!isAdminOrTester()) { showToast('F3: Solo admin/tester puede registrar salidas', 'warning'); break; }
+                handleStockExit();
                 break;
             case 'F5':
                 e.preventDefault();
@@ -869,10 +1209,12 @@
                 break;
             case 'F7':
                 e.preventDefault();
+                if (!isAdminOrTester()) { showToast('F7: Solo admin/tester puede registrar entradas', 'warning'); break; }
                 handleStockEntry();
                 break;
             case 'F2':
                 e.preventDefault();
+                if (!isAdminOrTester()) { showToast('F2: Solo admin/tester puede agregar productos', 'warning'); break; }
                 document.getElementById('btnAddProduct').click();
                 break;
             case 'F8':
@@ -932,6 +1274,33 @@
         saveData();
         renderProducts(searchInput.value);
         showToast('✅ Entrada registrada: +' + qty + ' unidades de ' + product.name + ' (Stock: ' + product.stock + ')', 'success');
+    }
+
+    function handleStockExit() {
+        if (!isAdminOrTester()) { showToast('Sin permisos para registrar salidas', 'warning'); return; }
+        const sku = prompt('📤 Salida de inventario\nIngresa el SKU del producto:');
+        if (!sku) return;
+
+        const product = products.find(p => p.sku.toLowerCase() === sku.toLowerCase());
+        if (!product) {
+            showToast('Producto no encontrado: ' + sku, 'error');
+            return;
+        }
+
+        const qty = parseInt(prompt('Producto: ' + product.name + '\nStock actual: ' + product.stock + '\n\nCantidad a retirar:'));
+        if (isNaN(qty) || qty <= 0) {
+            showToast('Cantidad no válida', 'warning');
+            return;
+        }
+        if (qty > product.stock) {
+            showToast('Stock insuficiente. Solo hay ' + product.stock + ' unidades.', 'warning');
+            return;
+        }
+
+        product.stock -= qty;
+        saveData();
+        renderProducts(searchInput.value);
+        showToast('📤 Salida registrada: -' + qty + ' unidades de ' + product.name + ' (Stock: ' + product.stock + ')', 'success');
     }
 
     function handlePriceCheck() {

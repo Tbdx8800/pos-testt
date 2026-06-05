@@ -1,36 +1,23 @@
 # Gestor de Tickets — RealPhone
 
-Aplicación web para la gestión integral de tickets de reparación y servicios técnicos.
-
-Versión `1.0.1`.
+Aplicación web para gestión de tickets de reparación y servicios técnicos.
 
 ## Características
 
-- Gestión de tickets por tienda
-- Integración con Firebase Firestore
-- Control de usuarios y permisos
-- Historial de reparaciones
-- Sistema de apartados y encargos
-- Almacenamiento persistente en la nube
+- Control de reparaciones
+- Gestión de apartados y encargos
+- Seguimiento por tienda
+- Sincronización con Firebase
 
-## Instalación
+## Instalar
 
-```bash
+```powershell
+cd "C:\Users\thepa\OneDrive\Datos adjuntos\gestor-tickets"
 npm install
 ```
 
-## Scripts disponibles
+## Ejecutar pruebas
 
-```bash
-npm start      # Inicia la aplicación (node main.js)
-npm test       # Ejecuta las pruebas unitarias
-npm test:watch # Modo watch para pruebas
+```powershell
+npm test
 ```
-
-## Acceso
-
-Abre `index.html` en tu navegador o despliega en GitHub Pages.
-
-**Usuarios demo:**
-- Usuario: `admin` / `gerente` / `cajero`
-- Contraseña: `1234`

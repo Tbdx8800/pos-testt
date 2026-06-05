@@ -1320,14 +1320,81 @@ main.container {
     box-shadow: 0 4px 24px rgba(29, 78, 216, 0.35);
 }
 
-/* Dark mode inputs and selects */
+/* Dark mode inputs and selects — COMPREHENSIVE FIX */
 [data-theme="dark"] .form-group input,
 [data-theme="dark"] .form-group select,
+[data-theme="dark"] .form-group textarea,
 [data-theme="dark"] .search-input,
-[data-theme="dark"] .search-select {
+[data-theme="dark"] .search-select,
+[data-theme="dark"] .secreto-key-input,
+[data-theme="dark"] .secreto-msg-input,
+[data-theme="dark"] input,
+[data-theme="dark"] select,
+[data-theme="dark"] textarea {
     border-color: #334155;
-    color: #e2e8f0;
+    color: #e2e8f0 !important;
+    background-color: #131c2e !important;
+    -webkit-text-fill-color: #e2e8f0 !important;
 }
+
+[data-theme="dark"] input::placeholder,
+[data-theme="dark"] textarea::placeholder,
+[data-theme="dark"] select::placeholder {
+    color: #64748b !important;
+    -webkit-text-fill-color: #64748b !important;
+}
+
+[data-theme="dark"] input:focus,
+[data-theme="dark"] select:focus,
+[data-theme="dark"] textarea:focus {
+    background-color: #192033 !important;
+    color: #e2e8f0 !important;
+    -webkit-text-fill-color: #e2e8f0 !important;
+}
+
+/* Blue theme input fix */
+[data-theme="blue"] .form-group input,
+[data-theme="blue"] .form-group select,
+[data-theme="blue"] .form-group textarea,
+[data-theme="blue"] .search-input,
+[data-theme="blue"] .search-select,
+[data-theme="blue"] input,
+[data-theme="blue"] select,
+[data-theme="blue"] textarea {
+    color: #1e3a8a !important;
+    -webkit-text-fill-color: #1e3a8a !important;
+    background-color: #eff6ff !important;
+}
+
+[data-theme="blue"] input::placeholder,
+[data-theme="blue"] textarea::placeholder {
+    color: #3b82f6 !important;
+    -webkit-text-fill-color: #3b82f6 !important;
+    opacity: 0.7;
+}
+
+/* Emerald theme input fix */
+[data-theme="emerald"] .form-group input,
+[data-theme="emerald"] .form-group select,
+[data-theme="emerald"] .form-group textarea,
+[data-theme="emerald"] .search-input,
+[data-theme="emerald"] .search-select,
+[data-theme="emerald"] input,
+[data-theme="emerald"] select,
+[data-theme="emerald"] textarea {
+    color: #064e3b !important;
+    -webkit-text-fill-color: #064e3b !important;
+    background-color: #ecfdf5 !important;
+}
+
+[data-theme="emerald"] input::placeholder,
+[data-theme="emerald"] textarea::placeholder {
+    color: #059669 !important;
+    -webkit-text-fill-color: #059669 !important;
+    opacity: 0.7;
+}
+
+
 
 [data-theme="dark"] .form-section,
 [data-theme="dark"] .tickets-section {

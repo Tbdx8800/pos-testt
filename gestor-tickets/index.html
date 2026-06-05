@@ -42,7 +42,8 @@
     <div id="loginScreen" class="login-screen hidden">
         <div class="login-card">
             <div class="logo">
-                <img src="logo.png" alt="Real Phone & Accesorios Logo" style="max-width:200px; margin-bottom:1rem; display:block; border-radius: 8px;">
+                <img src="logo.png" alt="Real Phone & Accesorios Logo"
+                    style="max-width:200px; margin-bottom:1rem; display:block; border-radius: 8px;">
                 <h1>Acceder</h1>
                 <span class="subtitle" style="color:var(--text-muted)">¿Quién está ingresando?</span>
             </div>
@@ -151,6 +152,10 @@
 
     <header class="app-header">
         <div class="logo" style="display:flex; align-items:center; gap:10px;">
+            <i class="fa-solid fa-mobile-screen-button" id="btnReturnToPos" title="Ir al POS"
+                style="cursor: pointer; font-size: 1.5rem; color: white; margin-right: 8px; transition: transform 0.2s;"
+                onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'"
+                onclick="window.open('../pos/index.html', '_blank')"></i>
             <img src="logo.png" alt="Real Phone Logo" style="height: 40px; border-radius: 4px;">
             <div>
                 <h1>Realphone</h1>
@@ -159,6 +164,12 @@
             </div>
         </div>
         <div class="header-actions">
+            <!-- POS Navigation Button -->
+            <button id="btnGoToPOS" title="Ir al Punto de Venta"
+                style="background:rgba(255,255,255,0.15); border:1.5px solid rgba(255,255,255,0.35); color:white; padding:0.35rem 0.8rem; border-radius:8px; font-family:inherit; font-size:0.8rem; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:6px; transition:background 0.2s; white-space:nowrap;"
+                onmouseover="this.style.background='rgba(255,255,255,0.28)'" onmouseout="this.style.background='rgba(255,255,255,0.15)'">
+                <i class="fa-solid fa-cash-register"></i> <span>POS</span>
+            </button>
             <!-- Theme Selector -->
             <div class="theme-selector">
                 <button class="btn-theme" id="btnThemeToggle" title="Cambiar Tema">
@@ -183,11 +194,12 @@
                     Apartado</button>
                 <button class="tab-btn" data-tab="tab-encargos"><i class="fa-solid fa-box-archive"></i>
                     Encargos</button>
-                <button class="tab-btn hidden" id="tabAdminBtn" data-tab="tab-admin"><i
-                        class="fa-solid fa-shield-halved"></i> Admin</button>
+                <button class="tab-btn hidden" id="tabAdminBtn" data-tab="tab-admin"><i class="fa-solid fa-cog"></i>
+                    Configuración</button>
             </nav>
         </div>
     </header>
+
 
     <!-- Active Users Bar -->
     <div class="container" style="margin-top: 1rem; margin-bottom: 0;">
@@ -225,11 +237,17 @@
             <div class="novedades-body" id="novedadesBody">
                 <ul class="novedades-list">
                     <li><i class="fa-solid fa-wifi" style="color:var(--primary-light)"></i>
-                        <strong>Modo Sin Conexión:</strong> La aplicación ahora guarda tus tickets localmente cuando no hay internet y los sincroniza automáticamente al recuperar la conexión.</li>
+                        <strong>Modo Sin Conexión:</strong> La aplicación ahora guarda tus tickets localmente cuando no
+                        hay internet y los sincroniza automáticamente al recuperar la conexión.
+                    </li>
                     <li><i class="fa-solid fa-bell" style="color:var(--primary-light)"></i>
-                        <strong>Notificar Pagos:</strong> Los clientes ahora pueden presionar el botón "Notificar Pago" en la pestaña de Facturas para alertar a los administradores al instante.</li>
+                        <strong>Notificar Pagos:</strong> Los clientes ahora pueden presionar el botón "Notificar Pago"
+                        en la pestaña de Facturas para alertar a los administradores al instante.
+                    </li>
                     <li><i class="fa-solid fa-clipboard-list" style="color:var(--primary-light)"></i>
-                        <strong>Detalles de Reparaciones:</strong> Al registrar reparaciones, ahora puedes detallar Comentarios adicionales, el Estado Eléctrico y el Estado Físico del equipo para mayor precisión.</li>
+                        <strong>Detalles de Reparaciones:</strong> Al registrar reparaciones, ahora puedes detallar
+                        Comentarios adicionales, el Estado Eléctrico y el Estado Físico del equipo para mayor precisión.
+                    </li>
                 </ul>
             </div>
         </div>
@@ -323,7 +341,9 @@
                     <div class="tickets-header" style="margin-bottom: 1rem;">
                         <h2><i class="fa-solid fa-list"></i> Registro de Facturas</h2>
                         <div style="display:flex; gap: 1rem; align-items: center;">
-                            <button class="btn btn-outline" id="btnNotifyPayment" title="Notificar pago al administrador" style="padding: 0.5rem 1rem; font-size:0.85rem; display:none; color: #f59e0b; border-color: #f59e0b;">
+                            <button class="btn btn-outline" id="btnNotifyPayment"
+                                title="Notificar pago al administrador"
+                                style="padding: 0.5rem 1rem; font-size:0.85rem; display:none; color: #f59e0b; border-color: #f59e0b;">
                                 <i class="fa-solid fa-bell"></i> Notificar Pago
                             </button>
                             <button class="btn btn-outline-danger" id="btnDeleteOldFacturas"
@@ -437,7 +457,8 @@
 
                         <div class="form-group">
                             <label for="reparacionComentarios">Comentarios / detalles comentados por el cliente</label>
-                            <textarea id="reparacionComentarios" rows="2" placeholder="Detalles extra reportados por el cliente..."></textarea>
+                            <textarea id="reparacionComentarios" rows="2"
+                                placeholder="Detalles extra reportados por el cliente..."></textarea>
                         </div>
 
                         <div class="form-row">
@@ -853,10 +874,10 @@
             </div>
         </div>
 
-        <!-- PESTAÑA ADMIN -->
+        <!-- PESTAÑA ADMIN -> CONFIGURACIÓN -->
         <div id="tab-admin" class="tab-content">
             <section class="form-section">
-                <h2><i class="fa-solid fa-shield-halved"></i> Panel de Administración</h2>
+                <h2><i class="fa-solid fa-cog"></i> Configuración del Sistema Integrado</h2>
                 <div class="grid-layout">
                     <div>
                         <h3 class="section-title">Gestión de Usuarios</h3>
@@ -885,37 +906,45 @@
         </div>
 
         <!-- BOTÓN FLOTANTE MODO EDICIÓN (TESTER) -->
-        <button id="fabEditMode" class="btn btn-primary hidden" style="position:fixed; bottom:20px; right:20px; border-radius:50%; width:60px; height:60px; box-shadow:0 4px 10px rgba(0,0,0,0.3); z-index:9999; display:flex; align-items:center; justify-content:center; font-size:1.5rem;" title="Modo Edición Visual">
+        <button id="fabEditMode" class="btn btn-primary hidden"
+            style="position:fixed; bottom:20px; right:20px; border-radius:50%; width:60px; height:60px; box-shadow:0 4px 10px rgba(0,0,0,0.3); z-index:9999; display:flex; align-items:center; justify-content:center; font-size:1.5rem;"
+            title="Modo Edición Visual">
             <i class="fa-solid fa-pen-ruler"></i>
         </button>
 
         <!-- MODAL DEL EDITOR FLOTANTE -->
-        <div id="visualEditorModal" class="hidden" style="position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); background:var(--card-bg); padding:1.5rem; border-radius:12px; box-shadow:0 10px 25px rgba(0,0,0,0.5); z-index:10000; min-width:350px; max-width:500px;">
+        <div id="visualEditorModal" class="hidden"
+            style="position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); background:var(--card-bg); padding:1.5rem; border-radius:12px; box-shadow:0 10px 25px rgba(0,0,0,0.5); z-index:10000; min-width:350px; max-width:500px;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
                 <h3 style="margin:0;"><i class="fa-solid fa-pen"></i> Editar Elemento</h3>
                 <i class="fa-solid fa-xmark" id="btnCloseVisualEditor" style="cursor:pointer; font-size:1.2rem;"></i>
             </div>
-            
+
             <!-- Modo Texto -->
             <div id="visualEditorTextMode" class="hidden">
                 <label style="display:block; margin-bottom:0.5rem; font-weight:bold;">Nuevo Texto:</label>
-                <input type="text" id="visualEditorTextInput" class="form-control" style="width:100%; padding:0.8rem; border-radius:8px; border:1px solid #ccc; margin-bottom:1rem;">
+                <input type="text" id="visualEditorTextInput" class="form-control"
+                    style="width:100%; padding:0.8rem; border-radius:8px; border:1px solid #ccc; margin-bottom:1rem;">
             </div>
 
             <!-- Modo Ícono/Imagen -->
             <div id="visualEditorImageMode" class="hidden">
-                <label style="display:block; margin-bottom:0.5rem; font-weight:bold;">Buscador de Íconos/Imágenes (Pega URL o Icon Class):</label>
+                <label style="display:block; margin-bottom:0.5rem; font-weight:bold;">Buscador de Íconos/Imágenes (Pega
+                    URL o Icon Class):</label>
                 <div style="display:flex; gap:0.5rem; margin-bottom:1rem;">
-                    <input type="text" id="visualEditorImageInput" class="form-control" placeholder="URL o fa-solid fa-..." style="flex:1; padding:0.8rem; border-radius:8px; border:1px solid #ccc;">
+                    <input type="text" id="visualEditorImageInput" class="form-control"
+                        placeholder="URL o fa-solid fa-..."
+                        style="flex:1; padding:0.8rem; border-radius:8px; border:1px solid #ccc;">
                 </div>
-                <iframe src="https://www.bing.com/images/search?q=iconos" style="width:100%; height:250px; border:1px solid #ddd; border-radius:8px; margin-bottom:1rem;"></iframe>
+                <iframe src="https://www.bing.com/images/search?q=iconos"
+                    style="width:100%; height:250px; border:1px solid #ddd; border-radius:8px; margin-bottom:1rem;"></iframe>
             </div>
 
             <button class="btn btn-primary w-full" id="btnSaveVisualOverride">Guardar Cambios</button>
         </div>
 
     </main>
-    
+
     <!-- Scripts Eliminados (Tester) -->
 
     <!-- ===== MENSAJE SECRETO PANEL ===== -->

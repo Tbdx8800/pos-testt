@@ -1,33 +1,23 @@
 # RealPhone — Sistema Integral de Punto de Venta
 
-Aplicación web moderna para gestión integral de tiendas de celulares y accesorios.
+Este repositorio integra dos aplicaciones web:
 
-Este repositorio alberga dos aplicaciones principales:
+- **RealPhone POS** en `/pos`
+- **Gestor de Tickets** en `/gestor-tickets`
 
-- **RealPhone POS** (`/pos`) — Sistema de Punto de Venta con inventario, ventas, usuarios y reportes. Versión `1.1.0`.
-- **Gestor de Tickets** (`/gestor-tickets`) — Gestión de tickets de reparación y servicios integrado con Firebase. Versión `1.0.1`.
+## Uso
 
-Ambas aplicaciones funcionan de forma independiente pero pueden compartir datos e integrarse mediante APIs.
+Abre `index.html` en la raíz para acceder al portal principal y elige la aplicación.
 
-## Acceso
+## Estructura
 
-- **POS**: [pos/index.html](pos/index.html)
-- **Gestor de Tickets**: [gestor-tickets/index.html](gestor-tickets/index.html)
-
-## Tecnología
-
-- Vanilla JavaScript (sin frameworks)
-- LocalStorage + Firebase (Firestore)
-- Responsive Design (Mobile-first)
-- PWA ready (manifest.json)
+- `/pos` — Punto de Venta con inventario y venta directa
+- `/gestor-tickets` — Gestión de tickets y reparaciones
 
 ## Desarrollo
 
-```bash
-# Instalar dependencias (gestor-tickets)
-cd gestor-tickets
+```powershell
+cd "C:\Users\thepa\OneDrive\Datos adjuntos\gestor-tickets"
 npm install
-
-# Ejecutar pruebas
 npm test
 ```

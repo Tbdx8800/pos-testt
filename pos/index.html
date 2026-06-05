@@ -31,16 +31,40 @@
             <div class="icon"><i class="fas fa-mobile-screen-button"></i></div>
             <h1>RealPhone <span>POS</span></h1>
             <p style="color: #6b7a90; margin-bottom: 1.5rem; font-weight: 500;">Punto de Venta — Celulares y Tecnología</p>
-            <input type="text"     id="loginUser" placeholder="👤 Usuario"    value="admin" autocomplete="off">
-            <input type="password" id="loginPass" placeholder="🔒 Contraseña" value="1234">
+            <input type="text"     id="loginUser" placeholder="👤 Usuario" autocomplete="off">
+            <input type="password" id="loginPass" placeholder="🔒 Contraseña">
             <button class="btn" id="loginBtn">
                 <i class="fas fa-sign-in-alt"></i> Iniciar Sesión
             </button>
             <p id="loginError" class="login-error"></p>
-            <p class="login-hint">
-                Usuarios demo: <strong>admin</strong> / <strong>gerente</strong> / <strong>cajero</strong><br>
-                Contraseña: <strong>1234</strong>
-            </p>
+        </div>
+    </div>
+
+    <!-- POS HEADER (visible when logged in) -->
+    <div id="posHeader" class="pos-header" style="display:none; position:fixed; top:0; left:0; right:0; z-index:1000;">
+        <div class="pos-header-logo">
+            <i class="fas fa-mobile-screen-button"></i>
+            <span>RealPhone <strong>POS</strong></span>
+            <span id="posHeaderUser" style="font-size:0.75rem; font-weight:500; opacity:0.8; margin-left:6px;"></span>
+        </div>
+        <div class="pos-header-actions">
+            <button class="btn-goto-gestor" id="btnGotoGestor" title="Ir al Sistema de Tickets">
+                <i class="fas fa-ticket-alt"></i> <span>Gestor de Tickets</span>
+            </button>
+            <button class="btn-header" id="btnTutorial" title="Videotutorial">
+                <i class="fas fa-play-circle"></i> <span>Tutorial</span>
+            </button>
+            <div style="position:relative;">
+                <button class="btn-header" id="btnThemePos" title="Cambiar Tema">
+                    <i class="fas fa-palette"></i> <span>Tema</span>
+                </button>
+                <div class="theme-dropdown-pos" id="themeDropdownPos" style="display:none;">
+                    <button class="theme-option-pos" data-theme="light"><i class="fas fa-sun"></i> Claro</button>
+                    <button class="theme-option-pos" data-theme="dark"><i class="fas fa-moon"></i> Oscuro</button>
+                    <button class="theme-option-pos" data-theme="blue"><i class="fas fa-droplet"></i> Azul Profundo</button>
+                    <button class="theme-option-pos" data-theme="emerald"><i class="fas fa-leaf"></i> Esmeralda</button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -129,9 +153,6 @@
             </div>
 
             <div class="action-buttons">
-                <button class="action-btn" id="btnMayoreo">
-                    <i class="fas fa-boxes"></i> Mayoreo (F1)
-                </button>
                 <button class="action-btn" id="btnBuscar">
                     <i class="fas fa-search"></i> Buscar (F10)
                 </button>
@@ -156,21 +177,7 @@
                 </button>
             </div>
 
-            <div class="quick-keys">
-                <span>F1 Mayoreo</span>
-                <span>F2 Nuevo Art.</span>
-                <span>F3 Salidas</span>
-                <span>F5 Cambiar</span>
-                <span>F6 Pendiente</span>
-                <span>F7 Entradas</span>
-                <span>F8 Inventario</span>
-                <span>F9 Verificador</span>
-                <span>F10 Buscar</span>
-                <span>F12 Cobrar</span>
-                <span>DEL Borrar</span>
-                <span>CTRL+P Art. Común</span>
-                <span>? Atajos</span>
-            </div>
+            <!-- Quick-keys bar removed — use '?' to see shortcuts -->
         </div>
 
     </div><!-- /pos-container -->
@@ -308,23 +315,107 @@
         </div>
     </div>
 
-    <!-- PANEL: Atajos de Teclado -->
+    <!-- PANEL: Atajos de Teclado (solo visible con '?') -->
     <div id="shortcutPanel" class="shortcut-panel">
-        <h3><i class="fas fa-keyboard"></i> Atajos de Teclado — Presiona '?' para mostrar/ocultar</h3>
+        <h3><i class="fas fa-keyboard"></i> Guía de Funciones — Presiona '?' para cerrar</h3>
         <div class="shortcut-grid">
-            <div class="shortcut-item"><span class="shortcut-key">F1</span> Modo Mayoreo</div>
-            <div class="shortcut-item"><span class="shortcut-key">F2</span> Agregar Producto</div>
-            <div class="shortcut-item"><span class="shortcut-key">F3</span> Salidas de inventario</div>
-            <div class="shortcut-item"><span class="shortcut-key">F5</span> Cambiar producto</div>
+
+            <div class="shortcut-item"><span class="shortcut-key">F2</span> Agregar Producto (Admin)</div>
+            <div class="shortcut-item"><span class="shortcut-key">F3</span> Salidas de inventario (Admin)</div>
+            <div class="shortcut-item"><span class="shortcut-key">F5</span> Cambiar cantidad</div>
             <div class="shortcut-item"><span class="shortcut-key">F6</span> Ticket pendiente</div>
-            <div class="shortcut-item"><span class="shortcut-key">F7</span> Entradas de inventario</div>
-            <div class="shortcut-item"><span class="shortcut-key">F8</span> Gestión Inventario</div>
+            <div class="shortcut-item"><span class="shortcut-key">F7</span> Entradas de inventario (Admin)</div>
+            <div class="shortcut-item"><span class="shortcut-key">F8</span> Gestión Inventario (Admin)</div>
             <div class="shortcut-item"><span class="shortcut-key">F9</span> Verificador de precios</div>
             <div class="shortcut-item"><span class="shortcut-key">F10</span> Buscar producto</div>
             <div class="shortcut-item"><span class="shortcut-key">F12</span> Cobrar venta</div>
             <div class="shortcut-item"><span class="shortcut-key">DEL</span> Borrar último artículo</div>
             <div class="shortcut-item"><span class="shortcut-key">Ctrl+P</span> Artículo Común</div>
-            <div class="shortcut-item"><span class="shortcut-key">ESC</span> Cerrar modal</div>
+            <div class="shortcut-item"><span class="shortcut-key">ESC</span> Cerrar modal/panel</div>
+            <div class="shortcut-item"><span class="shortcut-key">?</span> Mostrar/ocultar esta guía</div>
+        </div>
+    </div>
+
+    <!-- VIDEOTUTORIAL MODAL -->
+    <div id="tutorialOverlay" class="tutorial-modal-overlay">
+        <div class="tutorial-modal">
+            <div class="tutorial-header">
+                <h2><i class="fas fa-play-circle"></i> Videotutorial — RealPhone POS</h2>
+                <button class="modal-close" id="btnCloseTutorial">&#x2715;</button>
+            </div>
+            <div id="tutorialSteps">
+                <div class="tutorial-step active" id="tutStep0">
+                    <div class="tutorial-step-title"><i class="fas fa-door-open"></i> Bienvenido al POS</div>
+                    <div class="tutorial-step-body">Bienvenido al sistema de Punto de Venta RealPhone. Este tutorial te guiará paso a paso por todas las funciones principales. Puedes escuchar la narración con voz Zephyr mientras avanzas.</div>
+                </div>
+                <div class="tutorial-step" id="tutStep1">
+                    <div class="tutorial-step-title"><i class="fas fa-sign-in-alt"></i> Inicio de Sesión</div>
+                    <div class="tutorial-step-body">Para acceder al sistema, ingresa tu nombre de usuario y contraseña en la pantalla de inicio. El sistema soporta inicio de sesión doble: el administrador puede añadir un segundo usuario trabajando simultáneamente. Al cerrar sesión en el POS, también se cierra la sesión en el Gestor de Tickets.</div>
+                </div>
+                <div class="tutorial-step" id="tutStep2">
+                    <div class="tutorial-step-title"><i class="fas fa-boxes"></i> Catálogo de Productos</div>
+                    <div class="tutorial-step-body">En el panel izquierdo encontrarás el catálogo de productos. Puedes buscar por nombre o código SKU, filtrar por categoría usando las pestañas, y hacer clic en cualquier producto para agregarlo al ticket de venta actual.</div>
+                </div>
+                <div class="tutorial-step" id="tutStep3">
+                    <div class="tutorial-step-title"><i class="fas fa-cash-register"></i> Ticket de Venta</div>
+                    <div class="tutorial-step-body">En el panel derecho se construye tu ticket de venta. Agrega productos desde el catálogo, escribe el monto recibido del cliente y presiona F12 o el botón "Cobrar" para registrar la venta. El ticket se imprimirá automáticamente.</div>
+                </div>
+                <div class="tutorial-step" id="tutStep4">
+                    <div class="tutorial-step-title"><i class="fas fa-warehouse"></i> Gestión de Inventario</div>
+                    <div class="tutorial-step-body">Administradores y testers pueden gestionar el inventario con F8. Desde ahí puedes agregar productos individualmente, importar desde Excel, o exportar el inventario actual. F7 registra entradas de stock, F3 registra salidas. Los clientes solo pueden enviar solicitudes que requieren aprobación del administrador.</div>
+                </div>
+                <div class="tutorial-step" id="tutStep5">
+                    <div class="tutorial-step-title"><i class="fas fa-ticket-alt"></i> Sistema de Tickets</div>
+                    <div class="tutorial-step-body">El botón "Gestor de Tickets" en la barra superior te lleva al sistema integrado de gestión de facturas, reparaciones, apartados y encargos. Tu sesión se comparte automáticamente entre ambos sistemas.</div>
+                </div>
+                <div class="tutorial-step" id="tutStep6">
+                    <div class="tutorial-step-title"><i class="fas fa-keyboard"></i> Atajos de Teclado</div>
+                    <div class="tutorial-step-body">Presiona la tecla interrogación "?" en cualquier momento para ver la guía completa de atajos de teclado. Teclas de función F1 hasta F12 te dan acceso rápido a todas las funciones principales del sistema.</div>
+                </div>
+            </div>
+            <div class="tutorial-voice-status" id="tutorialVoiceStatus">
+                <i class="fas fa-volume-up"></i> <span id="voiceStatusText">Voz lista</span>
+            </div>
+            <div class="tutorial-controls">
+                <span class="tutorial-progress" id="tutorialProgress">Paso 1 / 7</span>
+                <div class="tutorial-nav">
+                    <button class="action-btn" id="btnTutPrev"><i class="fas fa-arrow-left"></i> Anterior</button>
+                    <button class="action-btn" id="btnTutStop" title="Detener voz"><i class="fas fa-stop"></i></button>
+                    <button class="action-btn" id="btnTutSpeak" title="Escuchar"><i class="fas fa-volume-up"></i></button>
+                    <button class="action-btn accent" id="btnTutNext">Siguiente <i class="fas fa-arrow-right"></i></button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- INVENTORY REQUEST MODAL (for client role) -->
+    <div id="invRequestOverlay" class="modal-overlay" style="display:none;">
+        <div class="inv-request-modal">
+            <div class="modal-header">
+                <h2><i class="fas fa-box-open" style="color:var(--accent);"></i> Solicitar Movimiento de Inventario</h2>
+                <button class="modal-close" id="btnCloseInvRequest">&#x2715;</button>
+            </div>
+            <p style="font-size:0.88rem; color:var(--text-secondary); margin-bottom:1rem;">Como cliente, puedes solicitar entradas o salidas de inventario. Un administrador o tester debe aprobar tu solicitud.</p>
+            <div style="display:flex; flex-direction:column; gap:10px;">
+                <div style="display:flex; gap:8px;">
+                    <select id="invReqType" style="flex:1; padding:10px; border-radius:var(--radius); border:2px solid var(--border); background:var(--bg-input); color:var(--text); font-family:inherit;">
+                        <option value="entrada">📥 Entrada de inventario</option>
+                        <option value="salida">📤 Salida de inventario</option>
+                    </select>
+                </div>
+                <input type="text" id="invReqSku" placeholder="SKU del producto" style="padding:10px; border-radius:var(--radius); border:2px solid var(--border); background:var(--bg-input); color:var(--text); font-family:inherit;">
+                <input type="number" id="invReqQty" placeholder="Cantidad" min="1" style="padding:10px; border-radius:var(--radius); border:2px solid var(--border); background:var(--bg-input); color:var(--text); font-family:inherit;">
+                <input type="text" id="invReqNote" placeholder="Motivo / nota (opcional)" style="padding:10px; border-radius:var(--radius); border:2px solid var(--border); background:var(--bg-input); color:var(--text); font-family:inherit;">
+            </div>
+            <div style="display:flex; gap:8px; margin-top:1rem; justify-content:flex-end;">
+                <button class="action-btn" id="btnCancelInvReq">Cancelar</button>
+                <button class="action-btn accent" id="btnSubmitInvReq"><i class="fas fa-paper-plane"></i> Enviar Solicitud</button>
+            </div>
+            <!-- Admin/Tester: Pending requests -->
+            <div id="pendingInvRequests" style="display:none; margin-top:1.5rem; border-top:1px solid var(--border); padding-top:1rem;">
+                <h3 style="font-size:0.9rem; font-weight:700; margin-bottom:0.8rem; color:var(--text);"><i class="fas fa-inbox"></i> Solicitudes Pendientes</h3>
+                <div class="inv-request-list" id="invRequestList"></div>
+            </div>
         </div>
     </div>
 

@@ -1,11 +1,13 @@
 /* ========================================
    RealPhone POS — Punto de Venta
-   styles.css — Tema Claro Premium
+   styles.css — Multi-Theme Premium
    ======================================== */
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
-:root {
+/* ===== LIGHT THEME (default) ===== */
+:root,
+[data-theme="light"] {
     --bg-main: #f0f2f5;
     --bg-panel: #ffffff;
     --bg-input: #f5f7fa;
@@ -30,6 +32,103 @@
     --radius-xl: 20px;
     --font-mono: 'Courier New', monospace;
     --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    --header-bg: linear-gradient(135deg, #1e3a8a 0%, #2563eb 50%, #0c2461 100%);
+    --overlay-bg: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+/* ===== DARK THEME ===== */
+[data-theme="dark"] {
+    --bg-main: #0f172a;
+    --bg-panel: #1e293b;
+    --bg-input: #0f172a;
+    --border: #334155;
+    --text: #e2e8f0;
+    --text-secondary: #94a3b8;
+    --accent: #60a5fa;
+    --accent-hover: #3b82f6;
+    --accent-light: rgba(96, 165, 250, 0.12);
+    --accent-glow: rgba(96, 165, 250, 0.2);
+    --danger: #f87171;
+    --danger-light: rgba(248, 113, 113, 0.1);
+    --warning: #fbbf24;
+    --success: #34d399;
+    --success-light: rgba(52, 211, 153, 0.1);
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.5);
+    --shadow-xl: 0 20px 60px rgba(0, 0, 0, 0.6);
+    --radius: 12px;
+    --radius-lg: 16px;
+    --radius-xl: 20px;
+    --font-mono: 'Courier New', monospace;
+    --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    --header-bg: linear-gradient(135deg, #020617 0%, #0f172a 50%, #020617 100%);
+    --overlay-bg: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+}
+
+/* ===== BLUE DEEP THEME ===== */
+[data-theme="blue"] {
+    --bg-main: #dbeafe;
+    --bg-panel: #eff6ff;
+    --bg-input: #dbeafe;
+    --border: #93c5fd;
+    --text: #1e3a8a;
+    --text-secondary: #1d4ed8;
+    --accent: #1d4ed8;
+    --accent-hover: #1e3a8a;
+    --accent-light: rgba(29, 78, 216, 0.1);
+    --accent-glow: rgba(29, 78, 216, 0.2);
+    --danger: #ef4444;
+    --danger-light: rgba(239, 68, 68, 0.08);
+    --warning: #f59e0b;
+    --success: #10b981;
+    --success-light: rgba(16, 185, 129, 0.08);
+    --shadow-sm: 0 1px 3px rgba(30, 58, 138, 0.1);
+    --shadow-md: 0 4px 12px rgba(30, 58, 138, 0.12);
+    --shadow-lg: 0 12px 40px rgba(30, 58, 138, 0.15);
+    --shadow-xl: 0 20px 60px rgba(30, 58, 138, 0.18);
+    --radius: 12px;
+    --radius-lg: 16px;
+    --radius-xl: 20px;
+    --font-mono: 'Courier New', monospace;
+    --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    --header-bg: linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 50%, #0c2461 100%);
+    --overlay-bg: linear-gradient(135deg, #bfdbfe 0%, #dbeafe 100%);
+}
+
+/* ===== EMERALD THEME ===== */
+[data-theme="emerald"] {
+    --bg-main: #d1fae5;
+    --bg-panel: #ecfdf5;
+    --bg-input: #d1fae5;
+    --border: #6ee7b7;
+    --text: #064e3b;
+    --text-secondary: #065f46;
+    --accent: #059669;
+    --accent-hover: #047857;
+    --accent-light: rgba(5, 150, 105, 0.1);
+    --accent-glow: rgba(5, 150, 105, 0.2);
+    --danger: #ef4444;
+    --danger-light: rgba(239, 68, 68, 0.08);
+    --warning: #f59e0b;
+    --success: #059669;
+    --success-light: rgba(5, 150, 105, 0.1);
+    --shadow-sm: 0 1px 3px rgba(6, 95, 70, 0.1);
+    --shadow-md: 0 4px 12px rgba(6, 95, 70, 0.12);
+    --shadow-lg: 0 12px 40px rgba(6, 95, 70, 0.15);
+    --shadow-xl: 0 20px 60px rgba(6, 95, 70, 0.18);
+    --radius: 12px;
+    --radius-lg: 16px;
+    --radius-xl: 20px;
+    --font-mono: 'Courier New', monospace;
+    --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    --header-bg: linear-gradient(135deg, #022c22 0%, #064e3b 50%, #022c22 100%);
+    --overlay-bg: linear-gradient(135deg, #a7f3d0 0%, #d1fae5 100%);
+}
+
+/* Global theme transitions */
+body, input, select, textarea, button, .action-btn, .product-item, .login-box, .modal-content, .toast, .shortcut-panel {
+    transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 * {
@@ -54,7 +153,7 @@ body {
 .overlay {
     position: fixed;
     inset: 0;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--overlay-bg, linear-gradient(135deg, #667eea 0%, #764ba2 100%));
     display: flex;
     justify-content: center;
     align-items: center;
@@ -1239,3 +1338,425 @@ body {
         grid-template-columns: repeat(2, 1fr);
     }
 }
+
+/* ==================== DARK THEME FIXES ==================== */
+[data-theme="dark"] body,
+[data-theme="dark"] .pos-container,
+[data-theme="dark"] .left-panel,
+[data-theme="dark"] .right-panel { background: var(--bg-main); color: var(--text); }
+
+[data-theme="dark"] .login-box {
+    background: rgba(30, 41, 59, 0.97);
+    border-color: var(--border);
+    color: var(--text);
+}
+
+[data-theme="dark"] .login-box h1 { color: var(--text); }
+[data-theme="dark"] .login-box h1 span {
+    background: linear-gradient(135deg, #60a5fa, #a78bfa);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+[data-theme="dark"] input,
+[data-theme="dark"] select,
+[data-theme="dark"] textarea {
+    background: var(--bg-input) !important;
+    color: var(--text) !important;
+    border-color: var(--border) !important;
+}
+
+[data-theme="dark"] input::placeholder,
+[data-theme="dark"] textarea::placeholder { color: var(--text-secondary) !important; }
+
+[data-theme="dark"] input:focus,
+[data-theme="dark"] select:focus,
+[data-theme="dark"] textarea:focus {
+    background: #1e293b !important;
+    border-color: var(--accent) !important;
+    box-shadow: 0 0 0 4px var(--accent-glow) !important;
+}
+
+[data-theme="dark"] .panel-header,
+[data-theme="dark"] .ticket-header,
+[data-theme="dark"] .ticket-table-wrapper,
+[data-theme="dark"] .ticket-footer,
+[data-theme="dark"] .action-buttons,
+[data-theme="dark"] .payment-section input,
+[data-theme="dark"] .bottom-controls select { background: var(--bg-panel); }
+
+[data-theme="dark"] .ticket-table th { background: var(--bg-panel); color: var(--text-secondary); }
+[data-theme="dark"] .ticket-table td { color: var(--text); border-color: var(--border); }
+[data-theme="dark"] .ticket-table tr:hover td { background: var(--accent-light); }
+
+[data-theme="dark"] .product-item {
+    background: var(--bg-input);
+    border-color: var(--border);
+}
+[data-theme="dark"] .product-item .name { color: var(--text); }
+[data-theme="dark"] .product-item .sku { color: var(--text-secondary); }
+
+[data-theme="dark"] .category-tab {
+    background: var(--bg-input);
+    border-color: var(--border);
+    color: var(--text-secondary);
+}
+[data-theme="dark"] .category-tab.active { background: var(--accent); color: white; border-color: var(--accent); }
+
+[data-theme="dark"] .action-btn {
+    background: var(--bg-panel);
+    color: var(--text);
+    border-color: var(--border);
+}
+[data-theme="dark"] .action-btn:hover { background: var(--accent-light); color: var(--accent); border-color: var(--accent); }
+
+[data-theme="dark"] .modal-content { background: var(--bg-panel); color: var(--text); border-color: var(--border); }
+[data-theme="dark"] .modal-header h2 { color: var(--text); }
+[data-theme="dark"] .modal-tab { background: var(--bg-input); color: var(--text-secondary); border-color: var(--border); }
+[data-theme="dark"] .modal-tab.active { background: var(--accent); color: white; border-color: var(--accent); }
+[data-theme="dark"] .modal-close { background: var(--bg-input); color: var(--text-secondary); border-color: var(--border); }
+
+[data-theme="dark"] .import-preview th { background: var(--bg-input); color: var(--text-secondary); border-color: var(--border); }
+[data-theme="dark"] .import-preview td { color: var(--text); border-color: var(--border); }
+
+[data-theme="dark"] .drop-zone { background: var(--bg-input); border-color: var(--border); }
+[data-theme="dark"] .export-option { background: var(--bg-input); border-color: var(--border); }
+[data-theme="dark"] .export-option .title { color: var(--text); }
+[data-theme="dark"] .export-option .desc { color: var(--text-secondary); }
+
+[data-theme="dark"] .shortcut-panel { background: var(--bg-panel); border-color: var(--border); }
+[data-theme="dark"] .shortcut-panel h3 { color: var(--text); }
+[data-theme="dark"] .shortcut-item { color: var(--text-secondary); }
+[data-theme="dark"] .shortcut-key { background: var(--bg-input); border-color: var(--border); color: var(--text); }
+
+[data-theme="dark"] .toast { background: var(--bg-panel); border-color: var(--border); color: var(--text); }
+[data-theme="dark"] .user-badge { background: var(--accent-light); color: var(--accent); }
+[data-theme="dark"] .total-row { color: var(--text); }
+
+/* Blue theme fixes */
+[data-theme="blue"] input,
+[data-theme="blue"] select,
+[data-theme="blue"] textarea {
+    background: var(--bg-input) !important;
+    color: var(--text) !important;
+    border-color: var(--border) !important;
+}
+[data-theme="blue"] input:focus,
+[data-theme="blue"] select:focus { background: #fff !important; }
+
+/* Emerald theme fixes */
+[data-theme="emerald"] input,
+[data-theme="emerald"] select,
+[data-theme="emerald"] textarea {
+    background: var(--bg-input) !important;
+    color: var(--text) !important;
+    border-color: var(--border) !important;
+}
+[data-theme="emerald"] input:focus,
+[data-theme="emerald"] select:focus { background: #fff !important; }
+
+/* ==================== POS HEADER ==================== */
+.pos-header {
+    width: 100%;
+    background: var(--header-bg, linear-gradient(135deg, #1e3a8a 0%, #2563eb 50%, #0c2461 100%));
+    color: white;
+    padding: 0.7rem 1.4rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.25);
+    border-bottom: 2px solid rgba(255,255,255,0.15);
+    gap: 1rem;
+    flex-shrink: 0;
+}
+
+.pos-header-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 800;
+    font-size: 1.1rem;
+    letter-spacing: -0.02em;
+}
+
+.pos-header-logo i { font-size: 1.5rem; }
+
+.pos-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.btn-header {
+    background: rgba(255,255,255,0.15);
+    border: 1.5px solid rgba(255,255,255,0.3);
+    color: white;
+    padding: 0.38rem 0.85rem;
+    border-radius: 8px;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    transition: background 0.2s, transform 0.15s;
+    white-space: nowrap;
+}
+
+.btn-header:hover {
+    background: rgba(255,255,255,0.28);
+    transform: translateY(-1px);
+}
+
+.btn-header.btn-goto {
+    background: rgba(255,255,255,0.2);
+    border-color: rgba(255,255,255,0.4);
+}
+
+.btn-header.btn-goto:hover {
+    background: rgba(255,255,255,0.35);
+}
+
+/* Theme dropdown */
+.theme-dropdown-pos {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: var(--shadow-lg);
+    min-width: 160px;
+    z-index: 5000;
+    overflow: hidden;
+    animation: fadeIn 0.15s ease;
+    padding: 0.3rem 0;
+}
+
+.theme-option-pos {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    width: 100%;
+    padding: 0.6rem 1rem;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.88rem;
+    font-weight: 500;
+    color: var(--text);
+    transition: background 0.15s;
+    text-align: left;
+}
+
+.theme-option-pos:hover { background: var(--bg-input); }
+.theme-option-pos.active { color: var(--accent); font-weight: 700; }
+.theme-option-pos.active::after { content: '✓'; margin-left: auto; }
+
+/* ==================== QUICK KEYS — hidden, only shown via ? ==================== */
+.quick-keys { display: none !important; }
+
+/* ==================== VIDEOTUTORIAL MODAL ==================== */
+.tutorial-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.75);
+    backdrop-filter: blur(10px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+.tutorial-modal-overlay.active {
+    opacity: 1;
+    pointer-events: all;
+}
+
+.tutorial-modal {
+    background: var(--bg-panel);
+    border-radius: var(--radius-xl);
+    padding: 2rem;
+    width: 92%;
+    max-width: 680px;
+    max-height: 88vh;
+    overflow-y: auto;
+    box-shadow: var(--shadow-xl);
+    border: 1px solid var(--border);
+    color: var(--text);
+    animation: modalSlideUp 0.35s ease;
+}
+
+.tutorial-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.5rem;
+    border-bottom: 2px solid var(--border);
+    padding-bottom: 1rem;
+}
+
+.tutorial-header h2 {
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.tutorial-header h2 i { color: var(--accent); }
+
+.tutorial-step {
+    display: none;
+    animation: fadeIn 0.35s ease;
+}
+.tutorial-step.active { display: block; }
+
+.tutorial-step-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--accent);
+    margin-bottom: 0.8rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.tutorial-step-body {
+    font-size: 0.95rem;
+    line-height: 1.7;
+    color: var(--text);
+    background: var(--bg-input);
+    border-radius: var(--radius);
+    padding: 1.2rem;
+    border: 1px solid var(--border);
+    min-height: 100px;
+}
+
+.tutorial-controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 1.5rem;
+    gap: 1rem;
+}
+
+.tutorial-progress {
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    font-weight: 600;
+}
+
+.tutorial-nav {
+    display: flex;
+    gap: 0.6rem;
+}
+
+.tutorial-voice-status {
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 0.5rem;
+}
+
+.tutorial-voice-status.speaking { color: var(--accent); }
+.tutorial-voice-status.speaking i { animation: pulse 1s infinite; }
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+}
+
+/* ==================== INVENTORY REQUEST MODAL ==================== */
+.inv-request-modal {
+    background: var(--bg-panel);
+    border-radius: var(--radius-xl);
+    padding: 1.8rem;
+    width: 92%;
+    max-width: 560px;
+    box-shadow: var(--shadow-xl);
+    border: 1px solid var(--border);
+    color: var(--text);
+    animation: modalSlideUp 0.35s ease;
+}
+
+.inv-request-list {
+    max-height: 300px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 1rem 0;
+}
+
+.inv-request-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: var(--bg-input);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    font-size: 0.88rem;
+}
+
+.inv-request-item .req-type-badge {
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 20px;
+}
+
+.inv-request-item .req-type-badge.entrada { background: rgba(16,185,129,0.15); color: #059669; }
+.inv-request-item .req-type-badge.salida { background: rgba(239,68,68,0.12); color: #ef4444; }
+
+/* ==================== PERMISSION OVERLAY (for restricted actions) ==================== */
+.perm-blocked {
+    opacity: 0.4;
+    pointer-events: none;
+    cursor: not-allowed;
+    filter: grayscale(0.5);
+}
+
+/* Responsive header */
+@media (max-width: 600px) {
+    .pos-header { padding: 0.5rem 0.8rem; }
+    .btn-header span { display: none; }
+    .pos-header-logo span { display: none; }
+}
+
+/* ==================== GESTOR LINK BUTTON ==================== */
+.btn-goto-gestor {
+    background: linear-gradient(135deg, rgba(99,102,241,0.3), rgba(139,92,246,0.3));
+    border: 1.5px solid rgba(139,92,246,0.5);
+    color: white;
+    padding: 0.38rem 0.9rem;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s;
+    font-family: 'Inter', sans-serif;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.btn-goto-gestor:hover {
+    background: linear-gradient(135deg, rgba(99,102,241,0.5), rgba(139,92,246,0.5));
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(99,102,241,0.35);
+}
+
+

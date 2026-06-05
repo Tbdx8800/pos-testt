@@ -1,276 +1,36 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RealPhone — Sistema Integral de Punto de Venta</title>
+    <title>RealPhone — Sistema Integral</title>
+    <link rel="shortcut icon" href="favicon.svg" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Inter', sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 2rem;
-        }
-
-        .container {
-            max-width: 1000px;
-            width: 100%;
-        }
-
-        .header {
-            text-align: center;
-            color: white;
-            margin-bottom: 4rem;
-        }
-
-        .header h1 {
-            font-size: 3rem;
-            font-weight: 800;
-            margin-bottom: 0.5rem;
-            letter-spacing: -1px;
-        }
-
-        .header p {
-            font-size: 1.25rem;
-            font-weight: 300;
-            opacity: 0.95;
-        }
-
-        .apps-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-            gap: 2rem;
-            margin-bottom: 2rem;
-        }
-
-        .app-card {
-            background: white;
-            border-radius: 16px;
-            overflow: hidden;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-            cursor: pointer;
-            text-decoration: none;
-            color: inherit;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .app-card:hover {
-            transform: translateY(-8px);
-            box-shadow: 0 30px 80px rgba(0, 0, 0, 0.2);
-        }
-
-        .app-header {
-            padding: 2rem;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            text-align: center;
-        }
-
-        .app-header .icon {
-            font-size: 3rem;
-            margin-bottom: 1rem;
-        }
-
-        .app-header h2 {
-            font-size: 1.75rem;
-            font-weight: 700;
-            margin-bottom: 0.5rem;
-        }
-
-        .app-header p {
-            font-size: 0.95rem;
-            opacity: 0.9;
-        }
-
-        .app-body {
-            padding: 2rem;
-            flex-grow: 1;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .app-description {
-            color: #6b7a90;
-            line-height: 1.6;
-            margin-bottom: 1.5rem;
-            font-size: 0.95rem;
-        }
-
-        .features {
-            list-style: none;
-            margin-bottom: 2rem;
-            flex-grow: 1;
-        }
-
-        .features li {
-            display: flex;
-            align-items: center;
-            padding: 0.5rem 0;
-            color: #4a5568;
-            font-size: 0.9rem;
-        }
-
-        .features li i {
-            width: 24px;
-            color: #667eea;
-            margin-right: 0.75rem;
-        }
-
-        .app-footer {
-            display: flex;
-            gap: 1rem;
-            padding-top: 1rem;
-            border-top: 1px solid #e2e8f0;
-        }
-
-        .btn {
-            flex: 1;
-            padding: 0.75rem 1.5rem;
-            border: none;
-            border-radius: 8px;
-            font-weight: 600;
-            font-size: 0.95rem;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.5rem;
-        }
-
-        .btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-        }
-
-        .btn-primary:hover {
-            opacity: 0.9;
-            transform: scale(1.02);
-        }
-
-        .btn-secondary {
-            background: #f0f4f8;
-            color: #4a5568;
-            border: 1px solid #cbd5e0;
-        }
-
-        .btn-secondary:hover {
-            background: #e2e8f0;
-        }
-
-        .footer {
-            text-align: center;
-            color: white;
-            margin-top: 4rem;
-            font-size: 0.9rem;
-            opacity: 0.8;
-        }
-
-        .footer a {
-            color: white;
-            text-decoration: none;
-            font-weight: 500;
-        }
-
-        .footer a:hover {
-            text-decoration: underline;
-        }
-
-        @media (max-width: 768px) {
-            .header h1 {
-                font-size: 2rem;
-            }
-
-            .header p {
-                font-size: 1rem;
-            }
-
-            .app-card {
-                margin: 0 auto;
-                max-width: 100%;
-            }
-        }
-    </style>
+    <link rel="stylesheet" href="portal-styles.css">
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <h1>🎮 RealPhone</h1>
-            <p>Sistema Integral de Punto de Venta y Gestión de Tickets</p>
+        <div class="hero">
+            <h1>RealPhone</h1>
+            <p>Sistema integral de Punto de Venta y Gestión de Tickets</p>
         </div>
-
-        <div class="apps-grid">
-            <!-- POS Card -->
-            <a href="pos/" class="app-card">
-                <div class="app-header">
-                    <div class="icon"><i class="fas fa-cash-register"></i></div>
-                    <h2>RealPhone POS</h2>
-                    <p>Punto de Venta</p>
-                </div>
-                <div class="app-body">
-                    <p class="app-description">
-                        Sistema completo de punto de venta para tiendas de celulares y accesorios.
-                    </p>
-                    <ul class="features">
-                        <li><i class="fas fa-check"></i> Gestión de inventario</li>
-                        <li><i class="fas fa-check"></i> Procesamiento de ventas</li>
-                        <li><i class="fas fa-check"></i> Múltiples usuarios</li>
-                        <li><i class="fas fa-check"></i> Reportes y análisis</li>
-                        <li><i class="fas fa-check"></i> Exportación a Excel</li>
-                    </ul>
-                    <div class="app-footer">
-                        <button class="btn btn-primary"><i class="fas fa-arrow-right"></i> Acceder</button>
-                    </div>
-                </div>
+        <div class="grid">
+            <a class="card" href="pos/">
+                <div class="icon">📦</div>
+                <h2>RealPhone POS</h2>
+                <p>Sistema de ventas, inventario y facturación para tiendas de celulares.</p>
             </a>
-
-            <!-- Gestor de Tickets Card -->
-            <a href="gestor-tickets/" class="app-card">
-                <div class="app-header">
-                    <div class="icon"><i class="fas fa-ticket-alt"></i></div>
-                    <h2>Gestor de Tickets</h2>
-                    <p>Reparaciones y Servicios</p>
-                </div>
-                <div class="app-body">
-                    <p class="app-description">
-                        Gestión completa de tickets de reparación y servicios técnicos con seguimiento en tiempo real.
-                    </p>
-                    <ul class="features">
-                        <li><i class="fas fa-check"></i> Control de reparaciones</li>
-                        <li><i class="fas fa-check"></i> Seguimiento por tienda</li>
-                        <li><i class="fas fa-check"></i> Sincronización en la nube</li>
-                        <li><i class="fas fa-check"></i> Gestión de apartados</li>
-                        <li><i class="fas fa-check"></i> Encargos y pedidos</li>
-                    </ul>
-                    <div class="app-footer">
-                        <button class="btn btn-primary"><i class="fas fa-arrow-right"></i> Acceder</button>
-                    </div>
-                </div>
+            <a class="card" href="gestor-tickets/">
+                <div class="icon">🎫</div>
+                <h2>Gestor de Tickets</h2>
+                <p>Gestión de reparaciones, servicios técnicos y seguimiento por tienda.</p>
             </a>
         </div>
-
-        <div class="footer">
-            <p>
-                RealPhone © 2026 — 
-                <a href="https://github.com/Tbdx8800/pos-testt" target="_blank">Ver en GitHub</a>
-            </p>
-        </div>
+        <footer>
+            <p>RealPhone © 2026</p>
+        </footer>
     </div>
 </body>
 </html>

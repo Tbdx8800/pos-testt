@@ -59,6 +59,8 @@ function checkAllDataLoaded() {
 
 onSnapshot(collection(db, "users"), (snapshot) => {
     users = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    localStorage.setItem('shared_firebase_users', JSON.stringify(users));
+    
     // Si no hay usuarios en la nube, creamos los por defecto
     if (users.length === 0) {
         const defaultUsers = [
@@ -67,19 +69,56 @@ onSnapshot(collection(db, "users"), (snapshot) => {
         defaultUsers.forEach(u => setDoc(doc(db, "users", u.id), u));
     }
 
-    // Si hay alguien logueado, actualizar su data (por si le cambiaron la clave)
-    if (currentUser1) {
-        const updated1 = users.find(u => u.id === currentUser1.id);
-        if (updated1) currentUser1 = updated1;
-    }
-    if (currentUser2) {
-        const updated2 = users.find(u => u.id === currentUser2.id);
-        if (updated2) currentUser2 = updated2;
+    // Leer quién está logueado desde el POS
+    const posUser1 = localStorage.getItem('realphone_currentUser1');
+    const posUser2 = localStorage.getItem('realphone_currentUser2');
+
+    if (posUser1) {
+        const parsed1 = JSON.parse(posUser1);
+        currentUser1 = users.find(u => u.id === parsed1.id) || parsed1;
+    } else {
+        currentUser1 = null;
     }
 
-    if (currentUser1) applyRolesAndUI(); // Refrescar UI si ya estaban logueados
+    if (posUser2) {
+        const parsed2 = JSON.parse(posUser2);
+        currentUser2 = users.find(u => u.id === parsed2.id) || parsed2;
+    } else {
+        currentUser2 = null;
+    }
+
+    if (currentUser1) applyRolesAndUI(); // Refrescar UI
 
     if (!dataLoaded.users) { dataLoaded.users = true; checkAllDataLoaded(); }
+});
+
+// Listener para cuando el POS cambia los usuarios sin recargar
+window.addEventListener('storage', (e) => {
+    if (e.key === 'realphone_currentUser1' || e.key === 'realphone_currentUser2') {
+        const posUser1 = localStorage.getItem('realphone_currentUser1');
+        const posUser2 = localStorage.getItem('realphone_currentUser2');
+        
+        if (posUser1) {
+            const parsed1 = JSON.parse(posUser1);
+            currentUser1 = users.find(u => u.id === parsed1.id) || parsed1;
+        } else {
+            currentUser1 = null;
+        }
+
+        if (posUser2) {
+            const parsed2 = JSON.parse(posUser2);
+            currentUser2 = users.find(u => u.id === parsed2.id) || parsed2;
+        } else {
+            currentUser2 = null;
+        }
+        
+        if (currentUser1) {
+            applyRolesAndUI();
+            if (loginScreen) loginScreen.classList.add('hidden');
+        } else {
+            if (loginScreen) loginScreen.classList.remove('hidden');
+        }
+    }
 });
 
 onSnapshot(collection(db, "facturas"), (snapshot) => {
@@ -243,7 +282,26 @@ function initApp() {
     if (!currentStore) {
         setupModal.classList.remove('hidden');
     } else {
-        loginScreen.classList.remove('hidden');
+        // En lugar de mostrar login, verificamos si el POS ya inició sesión
+        const posUser1 = localStorage.getItem('realphone_currentUser1');
+        if (posUser1) {
+            loginScreen.classList.add('hidden');
+            const parsed1 = JSON.parse(posUser1);
+            currentUser1 = users.find(u => u.id === parsed1.id) || parsed1;
+            
+            const posUser2 = localStorage.getItem('realphone_currentUser2');
+            if (posUser2) {
+                const parsed2 = JSON.parse(posUser2);
+                currentUser2 = users.find(u => u.id === parsed2.id) || parsed2;
+            }
+            applyRolesAndUI();
+        } else {
+            // Mostrar pantalla de espera (o login bloqueado)
+            loginScreen.classList.remove('hidden');
+            const subtitle = loginScreen.querySelector('.subtitle');
+            if (subtitle) subtitle.textContent = "Por favor, inicia sesión en el Punto de Venta.";
+            if (loginForm) loginForm.style.display = 'none';
+        }
     }
 }
 
@@ -252,75 +310,14 @@ btnSaveSetup.addEventListener('click', () => {
         currentStore = setupStoreSelect.value;
         DB.setStore(currentStore);
         setupModal.classList.add('hidden');
-        loginScreen.classList.remove('hidden');
+        initApp();
     } else {
         alert("Selecciona una tienda primero.");
     }
 });
 
-// ==================== AUTH / LOGIN ====================
-function findUser(username, password) {
-    return users.find(u => u.username.toLowerCase() === username.toLowerCase() && u.password === password);
-}
-
-loginForm.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const u = document.getElementById('loginUsername').value;
-    const p = document.getElementById('loginPassword').value;
-
-    const user = findUser(u, p);
-    if (user) {
-        currentUser1 = user;
-        loginScreen.classList.add('hidden');
-        loginError.style.display = 'none';
-        loginForm.reset();
-
-        applyRolesAndUI();
-    } else {
-        loginError.style.display = 'block';
-    }
-});
-
-btnLogout.addEventListener('click', () => {
-    currentUser1 = null;
-    currentUser2 = null;
-    loginScreen.classList.remove('hidden');
-    activeUsersBar.style.display = 'none';
-});
-
-btnAddCoworker.addEventListener('click', () => {
-    addCoworkerModal.classList.remove('hidden');
-});
-btnCancelCoworker.addEventListener('click', () => {
-    addCoworkerModal.classList.add('hidden');
-    addCoworkerForm.reset();
-});
-
-addCoworkerForm.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const u = document.getElementById('coworkerUsername').value;
-    const p = document.getElementById('coworkerPassword').value;
-
-    const user = findUser(u, p);
-    if (user) {
-        // No permitir que el mismo inicie dos veces
-        if (user.id === currentUser1.id) {
-            coworkerError.textContent = "Este usuario ya inició sesión.";
-            coworkerError.style.display = 'block';
-            return;
-        }
-
-        currentUser2 = user;
-        addCoworkerModal.classList.add('hidden');
-        coworkerError.style.display = 'none';
-        addCoworkerForm.reset();
-
-        applyRolesAndUI();
-    } else {
-        coworkerError.textContent = "Credenciales incorrectas.";
-        coworkerError.style.display = 'block';
-    }
-});
+// Login UI is disabled, it is handled by the POS.
+// The form listeners are removed or left dormant.
 
 // ==================== CHANGE PASSWORD ====================
 btnChangePassword.addEventListener('click', () => {
@@ -377,18 +374,12 @@ function applyRolesAndUI() {
     if (currentUser2) {
         const chip2 = document.createElement('div');
         chip2.className = 'user-chip';
-        // Botón para cerrar sesión de coworker
-        chip2.innerHTML = `<i class="fa-solid fa-user"></i> ${currentUser2.username} ${currentUser2.role === 'admin' ? '<span class="admin-badge">Admin</span>' : ''}
-                           <i class="fa-solid fa-xmark" style="cursor:pointer; margin-left:0.5rem; color:#ef4444;" id="btnRemoveCoworker"></i>`;
+        // En el Gestor ya no se cierra sesión individualmente, se hace desde el POS
+        chip2.innerHTML = `<i class="fa-solid fa-user"></i> ${currentUser2.username} ${currentUser2.role === 'admin' ? '<span class="admin-badge">Admin</span>' : ''}`;
         activeUsersContainer.appendChild(chip2);
         btnAddCoworker.style.display = 'none'; // Max 2
-
-        document.getElementById('btnRemoveCoworker').addEventListener('click', () => {
-            currentUser2 = null;
-            applyRolesAndUI();
-        });
     } else {
-        btnAddCoworker.style.display = 'inline-flex';
+        btnAddCoworker.style.display = 'none'; // Se añade desde el POS
     }
 
     // Atendio Selects Configuration
@@ -1918,9 +1909,117 @@ function updateTesterUI() {
     }
 }
 // Llamarlo en checkAllDataLoaded o donde se cambien los roles
+// Llamarlo en checkAllDataLoaded o donde se cambien los roles
 const originalApplyRoles = applyRolesAndUI;
 applyRolesAndUI = function() {
     originalApplyRoles();
     updateTesterUI();
 }
 
+// ==================== TEMA GESTOR ====================
+const GESTOR_THEME_KEY = 'realphone_gestor_theme';
+function applyGestorTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem(GESTOR_THEME_KEY, theme);
+}
+applyGestorTheme(localStorage.getItem(GESTOR_THEME_KEY) || 'light');
+
+const btnThemeToggle = document.getElementById('btnThemeToggle');
+const themeDropdown = document.getElementById('themeDropdown');
+if (btnThemeToggle && themeDropdown) {
+    btnThemeToggle.addEventListener('click', (e) => {
+        e.stopPropagation();
+        themeDropdown.classList.toggle('hidden');
+    });
+    document.querySelectorAll('.theme-option').forEach(btn => {
+        btn.addEventListener('click', () => {
+            applyGestorTheme(btn.dataset.theme);
+            themeDropdown.classList.add('hidden');
+        });
+    });
+    document.addEventListener('click', (e) => {
+        if (!themeDropdown.classList.contains('hidden') && !themeDropdown.contains(e.target) && e.target !== btnThemeToggle && !btnThemeToggle.contains(e.target)) {
+            themeDropdown.classList.add('hidden');
+        }
+    });
+}
+
+// ==================== ATAJOS DE TECLADO (?) ====================
+let isShortcutPanelOpen = false;
+
+document.addEventListener('keydown', function(e) {
+    const isTyping = e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT';
+    
+    if (e.key === '?' && !isTyping) {
+        e.preventDefault();
+        toggleGestorShortcuts();
+    }
+    
+    if (e.key === 'Escape') {
+        if (isShortcutPanelOpen) {
+            toggleGestorShortcuts();
+        }
+        if (themeDropdown && !themeDropdown.classList.contains('hidden')) {
+            themeDropdown.classList.add('hidden');
+        }
+    }
+    
+    // Quick actions like F-keys
+    if (!isTyping) {
+        switch (e.key) {
+            case 'F1':
+                e.preventDefault();
+                document.querySelector('.tab-btn[data-tab="tab-facturas"]')?.click();
+                break;
+            case 'F2':
+                e.preventDefault();
+                document.querySelector('.tab-btn[data-tab="tab-reparaciones"]')?.click();
+                break;
+            case 'F3':
+                e.preventDefault();
+                document.querySelector('.tab-btn[data-tab="tab-apartado"]')?.click();
+                break;
+            case 'F4':
+                e.preventDefault();
+                document.querySelector('.tab-btn[data-tab="tab-encargos"]')?.click();
+                break;
+            case 'F10':
+                e.preventDefault();
+                const currentTab = document.querySelector('.tab-btn.active').dataset.tab;
+                if (currentTab === 'tab-facturas') document.getElementById('searchInputFacturas')?.focus();
+                else if (currentTab === 'tab-reparaciones') document.getElementById('searchInputReparaciones')?.focus();
+                else if (currentTab === 'tab-apartado') document.getElementById('searchInputApartado')?.focus();
+                else if (currentTab === 'tab-encargos') document.getElementById('searchInputEncargos')?.focus();
+                break;
+        }
+    }
+});
+
+function toggleGestorShortcuts() {
+    isShortcutPanelOpen = !isShortcutPanelOpen;
+    let panel = document.getElementById('gestorShortcutPanel');
+    if (!panel) {
+        panel = document.createElement('div');
+        panel.id = 'gestorShortcutPanel';
+        panel.className = 'shortcut-panel';
+        panel.innerHTML = `
+            <h3><i class="fas fa-keyboard"></i> Guía de Funciones — Gestor (Presiona '?' para cerrar)</h3>
+            <div class="shortcut-grid">
+                <div class="shortcut-item"><span class="shortcut-key">F1</span> Pestaña Facturas</div>
+                <div class="shortcut-item"><span class="shortcut-key">F2</span> Pestaña Reparaciones</div>
+                <div class="shortcut-item"><span class="shortcut-key">F3</span> Pestaña Apartado</div>
+                <div class="shortcut-item"><span class="shortcut-key">F4</span> Pestaña Encargos</div>
+                <div class="shortcut-item"><span class="shortcut-key">F10</span> Buscar en pestaña actual</div>
+                <div class="shortcut-item"><span class="shortcut-key">ESC</span> Cerrar paneles</div>
+                <div class="shortcut-item"><span class="shortcut-key">?</span> Mostrar/ocultar esta guía</div>
+            </div>
+        `;
+        document.body.appendChild(panel);
+    }
+    
+    if (isShortcutPanelOpen) {
+        panel.classList.add('visible');
+    } else {
+        panel.classList.remove('visible');
+    }
+}
