@@ -11,5 +11,19 @@
     "@capacitor/cli": "^8.3.4",
     "@capacitor/core": "^8.3.4",
     "@capacitor/push-notifications": "^8.1.1"
+  },
+  "devDependencies": {
+    "jest": "^29.6.1"
+  },
+  "scripts": {
+    "start": "node main.js",
+    "test": "jest",
+    "test:watch": "jest --watchAll",
+    "lint": "echo \"No linter configured\"",
+    "build": "echo \"No build step configured\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Tbdx8800/pos-testt.git"
   }
 }
