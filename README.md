@@ -4,8 +4,8 @@ Aplicación web moderna para gestión integral de tiendas de celulares y accesor
 
 Este repositorio alberga dos aplicaciones principales:
 
-- **RealPhone POS** (`/pos`) — Sistema de Punto de Venta con inventario, ventas, usuarios y reportes.
-- **Gestor de Tickets** (`/gestor-tickets`) — Gestión de tickets de reparación y servicios integrado con Firebase.
+- **RealPhone POS** (`/pos`) — Sistema de Punto de Venta con inventario, ventas, usuarios y reportes. Versión `1.1.0`.
+- **Gestor de Tickets** (`/gestor-tickets`) — Gestión de tickets de reparación y servicios integrado con Firebase. Versión `1.0.1`.
 
 Ambas aplicaciones funcionan de forma independiente pero pueden compartir datos e integrarse mediante APIs.
 

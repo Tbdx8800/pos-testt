@@ -2,6 +2,8 @@
 
 Aplicación web para la gestión integral de tickets de reparación y servicios técnicos.
 
+Versión `1.0.1`.
+
 ## Características
 
 - Gestión de tickets por tienda
