@@ -1,4 +1,4 @@
-name: CI
+name: Tests & Deploy
 
 on:
   push:
@@ -13,13 +13,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18'
 
-      - name: Install & Test (gestor-tickets)
+      - name: Install Dependencies (gestor-tickets)
         working-directory: gestor-tickets
-        run: |
-          npm ci
-          npm test
+        run: npm ci
+
+      - name: Run Tests (gestor-tickets)
+        working-directory: gestor-tickets
+        run: npm test

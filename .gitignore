@@ -1,5 +1,9 @@
 ﻿node_modules/
-www/
+node_modules/
+.DS_Store
+.env
+.env.local
+*.log
 dist/
 build/
-.DS_Store
+.cache/
