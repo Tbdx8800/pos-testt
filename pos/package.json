@@ -1,0 +1,8 @@
+{
+  "name": "realphone-pos",
+  "version": "1.0.1",
+  "description": "RealPhone POS — Punto de Venta",
+  "main": "index.html",
+  "author": "Tbdx8800",
+  "license": "MIT"
+}
