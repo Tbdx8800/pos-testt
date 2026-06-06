@@ -121,6 +121,7 @@
     const searchInput        = document.getElementById('searchInput');
     const currentUserDisplay = document.getElementById('currentUserDisplay');
     const inventoryModal     = document.getElementById('inventoryModal');
+    const btnSimulateClientRequest = document.getElementById('btnSimulateClientRequest');
     const shortcutPanel      = document.getElementById('shortcutPanel');
 
     // ==================== AUTENTICACIÓN ====================
@@ -237,6 +238,9 @@
             clientBtn.addEventListener('click', openInvRequestModal);
             const actBtns = document.querySelector('.action-buttons');
             if (actBtns) actBtns.appendChild(clientBtn);
+        }
+        if (btnSimulateClientRequest) {
+            btnSimulateClientRequest.style.display = isPriv ? '' : 'none';
         }
         if (clientBtn) clientBtn.style.display = isPriv ? 'none' : '';
         // Pending requests panel for admin/tester
@@ -548,6 +552,25 @@
         const overlay = document.getElementById('invRequestOverlay');
         if (overlay) overlay.style.display = 'none';
     }
+
+    function simulateClientInventoryRequest() {
+        const demoRequest = {
+            id: 'req-demo-' + Date.now(),
+            type: 'salida',
+            sku: 'MICA-001',
+            qty: 2,
+            note: 'Simulación de cliente que solicita salida de inventario para reposición.',
+            requestedBy: 'Cliente Demo',
+            requestedAt: new Date().toLocaleString(),
+            status: 'pendiente'
+        };
+        const requests = JSON.parse(localStorage.getItem('realphone_inv_requests') || '[]');
+        requests.push(demoRequest);
+        localStorage.setItem('realphone_inv_requests', JSON.stringify(requests));
+        showToast('Simulación creada: solicitud de inventario enviada por cliente.', 'info');
+        openInvRequestModal();
+    }
+
     const btnCloseInvReq = document.getElementById('btnCloseInvRequest');
     if (btnCloseInvReq) btnCloseInvReq.addEventListener('click', closeInvRequestModal);
     const btnCancelInvReq = document.getElementById('btnCancelInvReq');
@@ -1063,6 +1086,7 @@
     const voiceStatusTxt = document.getElementById('voiceStatusText');
 
     let tutStep = 0;
+    let tutorialAudio = null;
     const TUTORIAL_STEPS = document.querySelectorAll('.tutorial-step');
     const TOTAL_STEPS = TUTORIAL_STEPS.length;
 
@@ -1084,44 +1108,80 @@
         speakTutStep();
     }
 
-    function getZephyrVoice() {
-        const voices = window.speechSynthesis ? window.speechSynthesis.getVoices() : [];
-        // Try to find Zephyr or best Spanish voice
-        return voices.find(v => v.name.toLowerCase().includes('zephyr')) ||
-               voices.find(v => v.lang.startsWith('es') && v.name.toLowerCase().includes('fem')) ||
-               voices.find(v => v.lang.startsWith('es')) ||
-               voices[0];
+    function getTutorialAudioFile(stepIndex) {
+        const activeStep = TUTORIAL_STEPS[stepIndex];
+        if (!activeStep) return null;
+        return activeStep.dataset.audio || `audio ${stepIndex + 1}.mp3`;
+    }
+
+    function setVoiceStatus(text, speaking = false) {
+        if (voiceStatusEl) voiceStatusEl.classList.toggle('speaking', speaking);
+        if (voiceStatusTxt) voiceStatusTxt.textContent = text;
     }
 
     function speakTutStep() {
-        if (!window.speechSynthesis) return;
         const activeStep = TUTORIAL_STEPS[tutStep];
         if (!activeStep) return;
         const bodyEl = activeStep.querySelector('.tutorial-step-body');
-        if (!bodyEl) return;
-        const text = bodyEl.innerText || bodyEl.textContent;
+        const text = bodyEl ? (bodyEl.innerText || bodyEl.textContent) : '';
+        const audioFile = getTutorialAudioFile(tutStep);
+        if (audioFile) {
+            playTutorialAudio(audioFile, text);
+        } else {
+            speakTutStepTTS(text);
+        }
+    }
+
+    function speakTutStepTTS(text) {
+        if (!window.speechSynthesis) {
+            setVoiceStatus('Voz no disponible', false);
+            return;
+        }
         const utt = new SpeechSynthesisUtterance(text);
         utt.lang = 'es-MX';
         utt.rate = 0.92;
         utt.pitch = 1.1;
         const voice = getZephyrVoice();
         if (voice) utt.voice = voice;
-        utt.onstart = () => {
-            if (voiceStatusEl) voiceStatusEl.classList.add('speaking');
-            if (voiceStatusTxt) voiceStatusTxt.textContent = 'Narrando con Zephyr...';
-        };
-        utt.onend = () => {
-            if (voiceStatusEl) voiceStatusEl.classList.remove('speaking');
-            if (voiceStatusTxt) voiceStatusTxt.textContent = 'Voz lista';
-        };
+        utt.onstart = () => setVoiceStatus('Narrando con Zephyr...', true);
+        utt.onend = () => setVoiceStatus('Voz lista', false);
+        utt.onerror = () => setVoiceStatus('Error de voz', false);
         window.speechSynthesis.cancel();
         window.speechSynthesis.speak(utt);
     }
 
+    function playTutorialAudio(src, fallbackText) {
+        stopTutVoice();
+        tutorialAudio = new Audio(src);
+        tutorialAudio.preload = 'auto';
+        tutorialAudio.onplay = () => setVoiceStatus(`Reproduciendo ${src}`, true);
+        tutorialAudio.onended = () => setVoiceStatus('Voz lista', false);
+        tutorialAudio.onerror = () => {
+            tutorialAudio = null;
+            speakTutStepTTS(fallbackText);
+        };
+        tutorialAudio.play().catch(() => {
+            tutorialAudio = null;
+            speakTutStepTTS(fallbackText);
+        });
+    }
+
+    function getZephyrVoice() {
+        const voices = window.speechSynthesis ? window.speechSynthesis.getVoices() : [];
+        return voices.find(v => v.name.toLowerCase().includes('zephyr')) ||
+               voices.find(v => v.lang.startsWith('es') && v.name.toLowerCase().includes('fem')) ||
+               voices.find(v => v.lang.startsWith('es')) ||
+               voices[0];
+    }
+
     function stopTutVoice() {
         if (window.speechSynthesis) window.speechSynthesis.cancel();
-        if (voiceStatusEl) voiceStatusEl.classList.remove('speaking');
-        if (voiceStatusTxt) voiceStatusTxt.textContent = 'Voz lista';
+        if (tutorialAudio) {
+            tutorialAudio.pause();
+            tutorialAudio.currentTime = 0;
+            tutorialAudio = null;
+        }
+        setVoiceStatus('Voz lista', false);
     }
 
     if (btnTutorial) btnTutorial.addEventListener('click', openTutorial);
@@ -1135,6 +1195,7 @@
     });
     if (btnTutSpeak) btnTutSpeak.addEventListener('click', speakTutStep);
     if (btnTutStop)  btnTutStop.addEventListener('click', stopTutVoice);
+    if (btnSimulateClientRequest) btnSimulateClientRequest.addEventListener('click', simulateClientInventoryRequest);
     // Load voices async
     if (window.speechSynthesis) window.speechSynthesis.onvoiceschanged = function() {};
 

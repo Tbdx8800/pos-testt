@@ -54,6 +54,9 @@
             <button class="btn-header" id="btnTutorial" title="Videotutorial">
                 <i class="fas fa-play-circle"></i> <span>Tutorial</span>
             </button>
+            <button class="btn-header" id="btnSimulateClientRequest" title="Simular solicitud de cliente" style="display:none;">
+                <i class="fas fa-user-clock"></i> <span>Simular Cliente</span>
+            </button>
             <div style="position:relative;">
                 <button class="btn-header" id="btnThemePos" title="Cambiar Tema">
                     <i class="fas fa-palette"></i> <span>Tema</span>
@@ -344,33 +347,33 @@
                 <button class="modal-close" id="btnCloseTutorial">&#x2715;</button>
             </div>
             <div id="tutorialSteps">
-                <div class="tutorial-step active" id="tutStep0">
-                    <div class="tutorial-step-title"><i class="fas fa-door-open"></i> Bienvenido al POS</div>
-                    <div class="tutorial-step-body">Bienvenido al sistema de Punto de Venta RealPhone. Este tutorial te guiará paso a paso por todas las funciones principales. Puedes escuchar la narración con voz Zephyr mientras avanzas.</div>
+                <div class="tutorial-step active" id="tutStep0" data-audio="audio 1.mp3">
+                    <div class="tutorial-step-title"><i class="fas fa-door-open"></i> Paso 1 — Bienvenido al POS</div>
+                    <div class="tutorial-step-body">Paso 1: Bienvenido al sistema de Punto de Venta RealPhone. Este tutorial te guiará paso a paso por las funciones principales. Escucha la narración por audio en el archivo <strong>audio 1.mp3</strong>.</div>
                 </div>
-                <div class="tutorial-step" id="tutStep1">
-                    <div class="tutorial-step-title"><i class="fas fa-sign-in-alt"></i> Inicio de Sesión</div>
-                    <div class="tutorial-step-body">Para acceder al sistema, ingresa tu nombre de usuario y contraseña en la pantalla de inicio. El sistema soporta inicio de sesión doble: el administrador puede añadir un segundo usuario trabajando simultáneamente. Al cerrar sesión en el POS, también se cierra la sesión en el Gestor de Tickets.</div>
+                <div class="tutorial-step" id="tutStep1" data-audio="audio 2.mp3">
+                    <div class="tutorial-step-title"><i class="fas fa-sign-in-alt"></i> Paso 2 — Inicio de Sesión</div>
+                    <div class="tutorial-step-body">Paso 2: Para acceder al sistema, ingresa tu nombre de usuario y contraseña. El sistema permite inicio de sesión doble con administrador y tester trabajando juntos. Al cerrar sesión en el POS, también se cierra la sesión en el Gestor de Tickets.</div>
                 </div>
-                <div class="tutorial-step" id="tutStep2">
-                    <div class="tutorial-step-title"><i class="fas fa-boxes"></i> Catálogo de Productos</div>
-                    <div class="tutorial-step-body">En el panel izquierdo encontrarás el catálogo de productos. Puedes buscar por nombre o código SKU, filtrar por categoría usando las pestañas, y hacer clic en cualquier producto para agregarlo al ticket de venta actual.</div>
+                <div class="tutorial-step" id="tutStep2" data-audio="audio 3.mp3">
+                    <div class="tutorial-step-title"><i class="fas fa-boxes"></i> Paso 3 — Catálogo de Productos</div>
+                    <div class="tutorial-step-body">Paso 3: En el panel izquierdo está el catálogo. Busca por nombre o SKU, filtra por categoría y haz clic en un producto para agregarlo al ticket activo.</div>
                 </div>
-                <div class="tutorial-step" id="tutStep3">
-                    <div class="tutorial-step-title"><i class="fas fa-cash-register"></i> Ticket de Venta</div>
-                    <div class="tutorial-step-body">En el panel derecho se construye tu ticket de venta. Agrega productos desde el catálogo, escribe el monto recibido del cliente y presiona F12 o el botón "Cobrar" para registrar la venta. El ticket se imprimirá automáticamente.</div>
+                <div class="tutorial-step" id="tutStep3" data-audio="audio 4.mp3">
+                    <div class="tutorial-step-title"><i class="fas fa-cash-register"></i> Paso 4 — Ticket de Venta</div>
+                    <div class="tutorial-step-body">Paso 4: En el panel derecho se construye el ticket. Agrega productos, escribe el pago del cliente y presiona F12 o el botón "Cobrar". El sistema calcula cambio y cierra la venta.</div>
                 </div>
-                <div class="tutorial-step" id="tutStep4">
-                    <div class="tutorial-step-title"><i class="fas fa-warehouse"></i> Gestión de Inventario</div>
-                    <div class="tutorial-step-body">Administradores y testers pueden gestionar el inventario con F8. Desde ahí puedes agregar productos individualmente, importar desde Excel, o exportar el inventario actual. F7 registra entradas de stock, F3 registra salidas. Los clientes solo pueden enviar solicitudes que requieren aprobación del administrador.</div>
+                <div class="tutorial-step" id="tutStep4" data-audio="audio 5.mp3">
+                    <div class="tutorial-step-title"><i class="fas fa-warehouse"></i> Paso 5 — Gestión de Inventario</div>
+                    <div class="tutorial-step-body">Paso 5: Administradores y testers usan F8 para gestionar inventario. Aquí se pueden agregar productos, importar desde Excel, exportar datos, hacer entradas con F7 y salidas con F3. Los clientes pueden enviar solicitudes de movimiento para aprobación.</div>
                 </div>
-                <div class="tutorial-step" id="tutStep5">
-                    <div class="tutorial-step-title"><i class="fas fa-ticket-alt"></i> Sistema de Tickets</div>
-                    <div class="tutorial-step-body">El botón "Gestor de Tickets" en la barra superior te lleva al sistema integrado de gestión de facturas, reparaciones, apartados y encargos. Tu sesión se comparte automáticamente entre ambos sistemas.</div>
+                <div class="tutorial-step" id="tutStep5" data-audio="audio 6.mp3">
+                    <div class="tutorial-step-title"><i class="fas fa-ticket-alt"></i> Paso 6 — Sistema de Tickets</div>
+                    <div class="tutorial-step-body">Paso 6: Usa el botón "Gestor de Tickets" para acceder a facturas, reparaciones, apartados y encargos. La sesión se comparte entre POS y Gestor de Tickets.</div>
                 </div>
-                <div class="tutorial-step" id="tutStep6">
-                    <div class="tutorial-step-title"><i class="fas fa-keyboard"></i> Atajos de Teclado</div>
-                    <div class="tutorial-step-body">Presiona la tecla interrogación "?" en cualquier momento para ver la guía completa de atajos de teclado. Teclas de función F1 hasta F12 te dan acceso rápido a todas las funciones principales del sistema.</div>
+                <div class="tutorial-step" id="tutStep6" data-audio="audio 7.mp3">
+                    <div class="tutorial-step-title"><i class="fas fa-keyboard"></i> Paso 7 — Atajos de Teclado</div>
+                    <div class="tutorial-step-body">Paso 7: Presiona "?" para ver la guía de atajos. Usa F1 a F12 para acceder rápido a funciones como cobrar, inventario y buscar productos.</div>
                 </div>
             </div>
             <div class="tutorial-voice-status" id="tutorialVoiceStatus">
