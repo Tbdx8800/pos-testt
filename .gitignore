@@ -8,4 +8,5 @@ dist/
 build/
 .cache/
 .gitcheck/
+.vscode/
 compare_files.py
