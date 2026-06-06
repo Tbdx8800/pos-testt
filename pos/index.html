@@ -48,14 +48,11 @@
             <span id="posHeaderUser" style="font-size:0.75rem; font-weight:500; opacity:0.8; margin-left:6px;"></span>
         </div>
         <div class="pos-header-actions">
-            <button class="btn-goto-gestor" id="btnGotoGestor" title="Ir al Sistema de Tickets">
-                <i class="fas fa-ticket-alt"></i> <span>Gestor de Tickets</span>
+            <button class="btn-header" id="btnMetas" title="Ver Metas">
+                <i class="fas fa-bullseye"></i> <span>Metas</span>
             </button>
-            <button class="btn-header" id="btnTutorial" title="Videotutorial">
-                <i class="fas fa-play-circle"></i> <span>Tutorial</span>
-            </button>
-            <button class="btn-header" id="btnSimulateClientRequest" title="Simular solicitud de cliente" style="display:none;">
-                <i class="fas fa-user-clock"></i> <span>Simular Cliente</span>
+            <button class="btn-header" id="btnConfig" title="Configuración">
+                <i class="fas fa-cog"></i> <span>Configuración</span>
             </button>
             <div style="position:relative;">
                 <button class="btn-header" id="btnThemePos" title="Cambiar Tema">
@@ -87,9 +84,7 @@
             </div>
 
             <div class="category-tabs" id="categoryTabs">
-                <button class="category-tab active" data-cat="todas">📦 Todas</button>
-                <button class="category-tab" data-cat="fundas">🛡️ Fundas</button>
-                <button class="category-tab" data-cat="micas">📱 Micas</button>
+                <!-- Se llena dinámicamente por app.js -->
             </div>
 
             <div class="product-list" id="productList">
@@ -97,18 +92,7 @@
             </div>
 
             <div class="bottom-controls">
-                <label>🏢 Sucursal activa:</label>
-                <select id="branchSelect">
-                    <option value="principal">🏢 Principal</option>
-                    <option value="sucursal1">🏪 Sucursal 1</option>
-                    <option value="sucursal2">🏪 Sucursal 2</option>
-                    <option value="sucursal3">🏪 Sucursal 3</option>
-                    <option value="sucursal4">🏪 Sucursal 4</option>
-                    <option value="sucursal5">🏪 Sucursal 5</option>
-                </select>
-                <button id="btnLogout" class="btn-logout">
-                    <i class="fas fa-sign-out-alt"></i> Cerrar Sesión
-                </button>
+                <p style="font-size:0.8rem; color:var(--text-secondary); text-align:center; width:100%;">Las opciones de sucursal y sesión están en Configuración ⚙️</p>
             </div>
         </div>
 
@@ -165,9 +149,6 @@
                 <button class="action-btn" id="btnPendiente">
                     <i class="fas fa-clock"></i> Pendiente (F6)
                 </button>
-                <button class="action-btn success" id="btnInventario">
-                    <i class="fas fa-file-excel"></i> Inventario (F8)
-                </button>
                 <button class="action-btn" id="btnAddProduct" style="border-color: rgba(37,99,235,0.3); color: var(--accent); background: var(--accent-light);">
                     <i class="fas fa-plus-circle"></i> Agregar Producto (F2)
                 </button>
@@ -185,28 +166,115 @@
 
     </div><!-- /pos-container -->
 
-    <!-- MODAL: Gestión de Inventario -->
-    <div id="inventoryModal" class="modal-overlay">
-        <div class="modal-content">
+    <!-- MODAL: Configuración y Administración (Antes Inventario) -->
+    <div id="configModal" class="modal-overlay" style="display:none; z-index:2000;">
+        <div class="modal-content" style="max-width:900px; width:95%;">
             <div class="modal-header">
-                <h2><i class="fas fa-file-excel"></i> Gestión de Inventario</h2>
-                <button class="modal-close" id="btnCloseInventory">&times;</button>
+                <h2><i class="fas fa-cog"></i> Configuración y Administración</h2>
+                <button class="modal-close" id="btnCloseConfig">&times;</button>
             </div>
 
-            <div class="modal-tabs">
-                <button class="modal-tab active" data-tab="add">
-                    <i class="fas fa-plus-circle"></i> Agregar Producto
+            <div class="modal-tabs" style="flex-wrap:wrap; gap:5px;">
+                <button class="modal-tab active" data-tab="general">
+                    <i class="fas fa-store"></i> General
                 </button>
-                <button class="modal-tab" data-tab="import">
-                    <i class="fas fa-file-import"></i> Importar Excel
+                <button class="modal-tab" data-tab="users" id="btnTabUsers">
+                    <i class="fas fa-users"></i> Usuarios
                 </button>
-                <button class="modal-tab" data-tab="export">
-                    <i class="fas fa-file-export"></i> Exportar Inventario
+                <button class="modal-tab" data-tab="add" id="btnTabAdd">
+                    <i class="fas fa-plus-circle"></i> Agregar Prod.
                 </button>
+                <button class="modal-tab" data-tab="stock" id="btnTabStock">
+                    <i class="fas fa-exchange-alt"></i> Entradas/Salidas
+                </button>
+                <button class="modal-tab" data-tab="metas" id="btnTabMetas">
+                    <i class="fas fa-bullseye"></i> Metas Ventas
+                </button>
+                <button class="modal-tab" data-tab="requests" id="btnTabRequests">
+                    <i class="fas fa-envelope-open-text"></i> Solicitudes Inv.
+                </button>
+                <button class="modal-tab" data-tab="importExport" id="btnTabImportExport">
+                    <i class="fas fa-file-excel"></i> Import/Export
+                </button>
+            </div>
+
+            <!-- TAB: General (Sucursal, Perfil, Enlaces) -->
+            <div class="tab-content active" id="tabGeneral">
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:1.5rem;">
+                    <div class="config-section" style="background:var(--bg-input); padding:1.5rem; border-radius:12px; border:1px solid var(--border);">
+                        <h3 style="margin-top:0; color:var(--text);"><i class="fas fa-store"></i> Sucursal y Sesión</h3>
+                        <p style="color:var(--text-secondary); font-size:0.9rem; margin-bottom:1rem;">Esta sucursal sincroniza con el sistema integrado.</p>
+                        <select id="branchSelect" class="form-control" style="background:var(--bg); color:var(--text); border:1px solid var(--border); font-size:1rem; padding:0.8rem; margin-bottom:1rem;">
+                            <!-- Firebase stores will be loaded here -->
+                            <option value="Matriz">Matriz</option>
+                            <option value="Sunny">Sunny</option>
+                            <option value="Hospital">Hospital</option>
+                            <option value="David">David</option>
+                            <option value="Portal">Portal</option>
+                        </select>
+                        <button id="btnLogout" class="btn btn-danger" style="width:100%;"><i class="fas fa-sign-out-alt"></i> Cerrar Sesión</button>
+                    </div>
+
+                    <div class="config-section" style="background:var(--bg-input); padding:1.5rem; border-radius:12px; border:1px solid var(--border);">
+                        <h3 style="margin-top:0; color:var(--text);"><i class="fas fa-link"></i> Enlaces Rápidos</h3>
+                        <div style="display:flex; flex-direction:column; gap:1rem; margin-top:1rem;">
+                            <button class="btn" id="btnGotoGestor"><i class="fas fa-ticket-alt"></i> Gestor de Tickets</button>
+                            <button class="btn btn-outline" id="btnTutorialConfig"><i class="fas fa-play-circle"></i> Videotutorial</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB: Usuarios -->
+            <div class="tab-content" id="tabUsers" style="display:none;">
+                <div class="config-section" style="background:var(--bg-input); padding:1.5rem; border-radius:12px; border:1px solid var(--border);">
+                    <h3 style="margin-top:0; color:var(--text);"><i class="fas fa-users"></i> Usuarios del Sistema (Firebase)</h3>
+                    <p style="color:var(--text-secondary); font-size:0.9rem; margin-bottom:1rem;">Estos usuarios se gestionan desde el Panel de Administración del Gestor de Tickets.</p>
+                    <div id="usersListContainer" style="display:flex; flex-direction:column; gap:0.5rem; max-height:300px; overflow-y:auto; padding-right:10px;">
+                        <!-- Firebase users will be rendered here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB: Metas -->
+            <div class="tab-content" id="tabMetas" style="display:none;">
+                <div class="config-section" style="background:var(--bg-input); padding:1.5rem; border-radius:12px; border:1px solid var(--border);">
+                    <h3 style="margin-top:0; color:var(--text);"><i class="fas fa-bullseye"></i> Metas de Ventas</h3>
+                    <p style="color:var(--text-secondary); font-size:0.9rem; margin-bottom:1.5rem;">El progreso sube automáticamente al cobrar productos de la categoría <strong>Telefonía</strong>.</p>
+                    
+                    <h3 style="font-size:1.1rem; margin-bottom:0.5rem; color:var(--text);">Meta Semanal (15 Equipos)</h3>
+                    <div style="background:var(--bg); height:24px; border-radius:12px; border:1px solid var(--border); overflow:hidden; position:relative; margin-bottom:1.5rem;">
+                        <div id="barWeekly" style="background:var(--primary); height:100%; width:0%; transition:width 0.5s ease;"></div>
+                        <span id="txtWeekly" style="position:absolute; top:0; left:0; right:0; text-align:center; font-size:0.85rem; font-weight:bold; color:#fff; text-shadow:0px 0px 3px rgba(0,0,0,0.5); line-height:24px;">0 / 15</span>
+                    </div>
+
+                    <h3 style="font-size:1.1rem; margin-bottom:0.5rem; color:var(--text);">Meta Mensual (60 Equipos)</h3>
+                    <div style="background:var(--bg); height:24px; border-radius:12px; border:1px solid var(--border); overflow:hidden; position:relative; margin-bottom:1.5rem;">
+                        <div id="barMonthly" style="background:var(--accent); height:100%; width:0%; transition:width 0.5s ease;"></div>
+                        <span id="txtMonthly" style="position:absolute; top:0; left:0; right:0; text-align:center; font-size:0.85rem; font-weight:bold; color:#fff; text-shadow:0px 0px 3px rgba(0,0,0,0.5); line-height:24px;">0 / 60</span>
+                    </div>
+
+                    <!-- Resumen de progreso -->
+                    <div id="metasSummary" style="background:var(--bg); border:1px solid var(--border); padding:1rem; border-radius:12px;">
+                        <h4 style="margin-top:0; margin-bottom:0.5rem; color:var(--text);">Aportaciones (Semanal)</h4>
+                        <div id="metasUsers" style="display:flex; flex-direction:column; gap:0.5rem; font-size:0.9rem; color:var(--text);"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB: Solicitudes Inv -->
+            <div class="tab-content" id="tabRequests" style="display:none;">
+                <div class="config-section" style="background:var(--bg-input); padding:1.5rem; border-radius:12px; border:1px solid var(--border);">
+                    <h3 style="margin-top:0; color:var(--text);"><i class="fas fa-envelope-open-text"></i> Solicitudes de Inventario</h3>
+                    <p style="color:var(--text-secondary); font-size:0.9rem; margin-bottom:1rem;">Peticiones de movimiento realizadas por usuarios estándar.</p>
+                    <div id="invRequestsContainer" style="display:flex; flex-direction:column; gap:0.5rem; max-height:300px; overflow-y:auto; padding-right:10px;">
+                        <!-- Inv requests will be rendered here -->
+                    </div>
+                </div>
             </div>
 
             <!-- TAB: Agregar Producto -->
-            <div class="tab-content active" id="tabAdd">
+            <div class="tab-content" id="tabAdd" style="display:none;">
                 <div class="info-box">
                     <i class="fas fa-info-circle"></i>
                     <span>Llena los campos para agregar un nuevo producto al inventario. Los campos con <strong>*</strong> son obligatorios.</span>
@@ -224,95 +292,88 @@
                         </div>
                         <div class="form-group">
                             <label for="addCategory">Categoría *</label>
-                            <select id="addCategory" required>
-                                <option value="fundas">🛡️ Fundas</option>
-                                <option value="micas">📱 Micas</option>
-                                <option value="otros">📦 Otros</option>
-                            </select>
+                            <div style="display:flex; gap:0.5rem;">
+                                <select id="addCategory" required style="flex-grow:1;">
+                                    <!-- Dinámico -->
+                                </select>
+                                <button type="button" id="btnAddNewCategory" class="btn btn-outline" title="Añadir Categoría" style="padding:0 0.8rem; display:flex;">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                            </div>
                         </div>
                         <div class="form-group">
                             <label for="addCost">Costo $</label>
                             <input type="number" id="addCost" placeholder="0.00" step="0.01" min="0" value="0">
                         </div>
                         <div class="form-group">
-                            <label for="addPrice">Precio de Venta $ *</label>
+                            <label for="addPrice">Precio $ *</label>
                             <input type="number" id="addPrice" placeholder="0.00" step="0.01" min="0" required>
                         </div>
                         <div class="form-group">
-                            <label for="addStock">Stock Inicial</label>
-                            <input type="number" id="addStock" placeholder="0" min="0" value="1">
+                            <label for="addStock">Stock *</label>
+                            <input type="number" id="addStock" placeholder="0" min="0" value="1" required>
                         </div>
                     </div>
-
-                    <div class="import-actions">
-                        <button type="reset" class="action-btn">
-                            <i class="fas fa-eraser"></i> Limpiar
-                        </button>
+                    <div style="text-align:right; margin-top:1.5rem;">
                         <button type="submit" class="action-btn accent">
                             <i class="fas fa-plus"></i> Agregar al Inventario
                         </button>
                     </div>
                 </form>
-
                 <div id="recentlyAdded" style="margin-top:1rem;"></div>
             </div>
 
-            <!-- TAB: Importar -->
-            <div class="tab-content" id="tabImport">
+            <!-- TAB: Movimientos -->
+            <div class="tab-content" id="tabStock" style="display:none;">
                 <div class="info-box">
                     <i class="fas fa-info-circle"></i>
-                    <span>El archivo Excel debe contener columnas: <strong>SKU, Nombre, Categoría, Costo, Precio, Stock</strong>. Se aceptan archivos .xlsx y .xls</span>
+                    <span>Realiza entradas o salidas de inventario.</span>
                 </div>
-
-                <div class="drop-zone" id="dropZone">
-                    <i class="fas fa-cloud-upload-alt"></i>
-                    <p>Arrastra tu archivo Excel aquí o haz clic para seleccionar</p>
-                    <p class="drop-hint">Formatos aceptados: .xlsx, .xls</p>
-                    <input type="file" id="fileInput" accept=".xlsx,.xls" style="display:none">
-                </div>
-
-                <div id="importStatus"></div>
-                <div id="importPreview" class="import-preview" style="display:none;"></div>
-
-                <div class="import-actions" id="importActions" style="display:none;">
-                    <button class="action-btn" id="btnCancelImport">
-                        <i class="fas fa-times"></i> Cancelar
-                    </button>
-                    <button class="action-btn accent" id="btnConfirmImport">
-                        <i class="fas fa-check"></i> Confirmar Importación
-                    </button>
+                <div style="display:flex; gap:1rem; margin-top:1rem;">
+                    <button class="btn accent" id="btnDoStockIn"><i class="fas fa-arrow-down"></i> Entrada (F7)</button>
+                    <button class="btn btn-outline" id="btnDoStockOut"><i class="fas fa-arrow-up"></i> Salida (F3)</button>
                 </div>
             </div>
 
-            <!-- TAB: Exportar -->
-            <div class="tab-content" id="tabExport">
-                <div class="info-box">
-                    <i class="fas fa-info-circle"></i>
-                    <span>Exporta tu inventario actual en formato Excel (.xlsx) para respaldo o transferencia entre sucursales.</span>
-                </div>
-
-                <div class="export-options">
-                    <div class="export-option selected" data-type="full" id="exportFull">
-                        <i class="fas fa-database"></i>
-                        <div class="title">Inventario Completo</div>
-                        <div class="desc">Todos los productos con detalles completos</div>
+            <!-- TAB: Importar / Exportar -->
+            <div class="tab-content" id="tabImportExport" style="display:none;">
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:1.5rem;">
+                    <div class="config-section" style="background:var(--bg-input); padding:1.5rem; border-radius:12px; border:1px solid var(--border);">
+                        <h3 style="margin-top:0; color:var(--text);"><i class="fas fa-file-import"></i> Importar Excel</h3>
+                        <p style="font-size:0.9rem; color:var(--text-secondary);">Columnas obligatorias: SKU, Descripción, Existencia, Precio, Categoría.</p>
+                        <div class="file-upload" id="dropZoneConfig" style="margin-top:1rem; border:2px dashed var(--border); padding:2rem; text-align:center; border-radius:12px; cursor:pointer;">
+                            <i class="fas fa-cloud-upload-alt" style="font-size:2rem; color:var(--accent); margin-bottom:1rem;"></i>
+                            <p style="margin:0; font-weight:500;">Arrastra tu Excel aquí</p>
+                            <p style="margin:5px 0 0 0; font-size:0.85rem; color:var(--text-secondary);">o haz clic para buscar</p>
+                        </div>
+                        <input type="file" id="excelFileConfig" accept=".xlsx, .xls" style="display:none;">
+                        
+                        <div id="importPreviewConfig" style="display:none; margin-top:1rem; background:var(--bg-app); padding:1rem; border-radius:8px; border:1px solid var(--border);">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+                                <span style="font-weight:600;"><i class="fas fa-eye"></i> Vista Previa</span>
+                                <span id="importStatusConfig" class="status-badge success"></span>
+                            </div>
+                            <div id="previewTableConfig" style="max-height:200px; overflow-y:auto; font-size:0.85rem;"></div>
+                            <div id="importActionsConfig" style="display:flex; gap:1rem; margin-top:1rem;">
+                                <button class="btn btn-outline" id="btnCancelImportConfig" style="flex:1;">Cancelar</button>
+                                <button class="btn success" id="btnConfirmImportConfig" style="flex:1;"><i class="fas fa-check"></i> Importar</button>
+                            </div>
+                        </div>
                     </div>
-                    <div class="export-option" data-type="stock" id="exportStock">
-                        <i class="fas fa-cubes"></i>
-                        <div class="title">Solo Stock</div>
-                        <div class="desc">SKU, Nombre y cantidades disponibles</div>
+                    <div class="config-section" style="background:var(--bg-input); padding:1.5rem; border-radius:12px; border:1px solid var(--border);">
+                        <h3 style="margin-top:0; color:var(--text);"><i class="fas fa-file-export"></i> Exportar Inventario</h3>
+                        <div class="export-options" style="display:flex; flex-direction:column; gap:0.5rem; margin-top:1rem;">
+                            <div class="export-option selected" data-type="completo" style="padding:1rem; border:2px solid var(--accent); border-radius:8px; cursor:pointer;">
+                                <div style="font-weight:600;"><i class="fas fa-list-alt"></i> Completo</div>
+                                <div style="font-size:0.85rem; color:var(--text-secondary);">Todos los productos con existencias y detalles.</div>
+                            </div>
+                            <div class="export-option" data-type="faltantes" style="padding:1rem; border:2px solid var(--border); border-radius:8px; cursor:pointer;">
+                                <div style="font-weight:600;"><i class="fas fa-exclamation-triangle" style="color:var(--danger);"></i> Faltantes</div>
+                                <div style="font-size:0.85rem; color:var(--text-secondary);">Solo productos con stock en 0 o negativo.</div>
+                            </div>
+                        </div>
+                        <button class="btn success" id="btnExportConfig" style="width:100%; margin-top:1.5rem;"><i class="fas fa-download"></i> Descargar Excel</button>
                     </div>
-                    <div class="export-option" data-type="template" id="exportTemplate">
-                        <i class="fas fa-file-alt"></i>
-                        <div class="title">Plantilla Vacía</div>
-                        <div class="desc">Descarga plantilla para llenar e importar</div>
-                    </div>
-                </div>
-
-                <div class="import-actions">
-                    <button class="action-btn accent" id="btnExport">
-                        <i class="fas fa-download"></i> Descargar Excel
-                    </button>
                 </div>
             </div>
         </div>
@@ -421,7 +482,47 @@
             </div>
         </div>
     </div>
+    <!-- MODAL CATEGORÍA -->
+    <div id="categoryModal" class="modal-overlay" style="display:none; z-index:2000;">
+        <div class="modal" style="max-width:400px; padding:20px;">
+            <div class="modal-header">
+                <h2><i class="fas fa-folder-plus"></i> Añadir Categoría</h2>
+                <button class="btn-close" id="btnCloseCategory"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group" style="margin-top:1rem;">
+                    <label>Icono (Emoji)</label>
+                    <input type="text" id="newCatIcon" placeholder="Ej: 📱" maxlength="2" style="font-size:1.5rem; text-align:center;">
+                </div>
+                <div class="form-group" style="margin-top:1rem;">
+                    <label>Nombre de la Categoría</label>
+                    <input type="text" id="newCatName" placeholder="Ej: Tablets">
+                </div>
+                <button class="btn accent" id="btnSaveCategory" style="margin-top:1.5rem; width:100%;"><i class="fas fa-save"></i> Guardar Categoría</button>
+            </div>
+        </div>
+    </div>
 
+
+
+
+
+    <!-- MODAL BIENVENIDA / TUTORIAL -->
+    <div id="welcomeModal" class="modal-overlay" style="display:none; z-index:3000;">
+        <div class="modal" style="text-align:center; padding:2rem;">
+            <i class="fas fa-mobile-screen-button" style="font-size:3rem; color:var(--primary); margin-bottom:1rem;"></i>
+            <h2 style="margin-bottom:1rem; color:var(--text);">¡Bienvenido al sistema de venta RealPhone!</h2>
+            <p style="color:var(--text-secondary); margin-bottom:1.5rem;">¿Deseas mirar el tutorial antes de comenzar?</p>
+            <div style="display:flex; gap:1rem; justify-content:center;">
+                <button class="btn btn-outline" id="btnWelcomeNo">No</button>
+                <button class="btn accent" id="btnWelcomeYes">Sí</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase Compat -->
+    <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore-compat.js"></script>
     <!-- Lógica de la aplicación -->
     <script src="app.js"></script>
 </body>

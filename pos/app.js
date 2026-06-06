@@ -3,6 +3,24 @@
  * app.js — Lógica principal con atajos de teclado e inventario Excel
  */
 
+const firebaseConfig = {
+    apiKey: "AIzaSyAziX2ZYthQ6jMN9t5KoEk1qb88ZT29OMU",
+    authDomain: "realphone-tickets.firebaseapp.com",
+    projectId: "realphone-tickets",
+    storageBucket: "realphone-tickets.firebasestorage.app",
+    messagingSenderId: "461224250452",
+    appId: "1:461224250452:web:9d2ed52a0e880c3e45f1c1"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+db.settings({
+    cacheSizeBytes: firebase.firestore.CACHE_SIZE_UNLIMITED
+});
+db.enablePersistence().catch(function(err) {
+    console.warn("Persistence error:", err);
+});
+
 (function () {
 
     // ==================== DATOS INICIALES ====================
@@ -39,6 +57,22 @@
     let activeCategory = 'todas';
     let pendingImportData = [];
     let selectedExportType = 'full';
+    let invRequests = []; // Solicitudes de inventario
+
+    const defaultCategories = [
+        { id: 'TOD', icon: '📦', name: 'Todas' },
+        { id: 'FUN', icon: '🛡️', name: 'Fundas' },
+        { id: 'MIC', icon: '📱', name: 'Micas' },
+        { id: 'TEL', icon: '📞', name: 'Telefonía' }
+    ];
+    let categories = [];
+
+    let phoneSales = {
+        weekly: { total: 0, users: {} },
+        monthly: { total: 0, users: {} },
+        lastWeeklyReset: Date.now(),
+        lastMonthlyReset: Date.now()
+    };
 
     // ==================== PERSISTENCIA ====================
     const DATA_VERSION = '3.0'; // Cambiar para forzar reset de inventario
@@ -49,22 +83,92 @@
             if (savedVersion !== DATA_VERSION) {
                 // Versión diferente → resetear a valores por defecto
                 console.log('Datos actualizados a versión ' + DATA_VERSION + '. Reseteando inventario...');
-                users        = structuredClone(defaultUsers);
-                products     = structuredClone(defaultProducts);
+                users        = JSON.parse(JSON.stringify(defaultUsers));
+                products     = JSON.parse(JSON.stringify(defaultProducts));
                 salesHistory = [];
                 localStorage.setItem('realphone_version', DATA_VERSION);
                 saveData();
-                return;
+                // Removed return; so Firebase listeners still run
             }
-            users        = JSON.parse(localStorage.getItem('realphone_users'))    || structuredClone(defaultUsers);
-            products     = JSON.parse(localStorage.getItem('realphone_products')) || structuredClone(defaultProducts);
+            // Cargar usuarios desde Firebase
+            db.collection("users").onSnapshot((snapshot) => {
+                users = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                if (users.length === 0) {
+                    users = JSON.parse(JSON.stringify(defaultUsers));
+                }
+                
+                // Si el usuario actual ya no existe o cambió, cerrar sesión
+                if (currentUser) {
+                    const stillExists = users.find(u => u.id === currentUser.id);
+                    if (!stillExists || !stillExists.active) {
+                        doLogout();
+                    }
+                }
+            });
+
+            // Forzar subida de usuarios locales y por defecto a la nube para garantizar el login
+            const localUsers = JSON.parse(localStorage.getItem('realphone_users')) || [];
+            const allUsersToSync = [...defaultUsers, ...localUsers];
+            allUsersToSync.forEach(u => {
+                if (u && u.id) db.collection("users").doc(u.id.toString()).set(u, { merge: true }).catch(console.error);
+            });
+
+            // Cargar solicitudes de inventario desde Firebase
+            db.collection("invRequests").onSnapshot((snapshot) => {
+                invRequests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                renderInvRequests();
+            });
+
+            products     = JSON.parse(localStorage.getItem('realphone_products')) || JSON.parse(JSON.stringify(defaultProducts));
             salesHistory = JSON.parse(localStorage.getItem('realphone_sales'))    || [];
+            ticketCounter= parseInt(localStorage.getItem('realphone_ticket_counter')) || 1;
+            categories   = JSON.parse(localStorage.getItem('realphone_categories')) || JSON.parse(JSON.stringify(defaultCategories));
+            
+            // Migrar categorías antiguas a 3 letras mayúsculas
+            let needsMigration = false;
+            categories.forEach(c => {
+                if (c.id === 'todas') { c.id = 'TOD'; needsMigration = true; }
+                if (c.id === 'fundas') { c.id = 'FUN'; needsMigration = true; }
+                if (c.id === 'micas') { c.id = 'MIC'; needsMigration = true; }
+                if (c.id === 'telefonía' || c.id === 'telefonia') { c.id = 'TEL'; needsMigration = true; }
+            });
+            
+            if (needsMigration) {
+                products.forEach(p => {
+                    if (p.category === 'fundas') p.category = 'FUN';
+                    if (p.category === 'micas') p.category = 'MIC';
+                    if (p.category === 'telefonía' || p.category === 'telefonia') p.category = 'TEL';
+                });
+                saveData();
+            }
+
+            phoneSales   = JSON.parse(localStorage.getItem('realphone_phone_sales')) || phoneSales;
+            
+            checkSalesResets();
         } catch (e) {
             console.error('Error cargando datos:', e);
-            users        = structuredClone(defaultUsers);
-            products     = structuredClone(defaultProducts);
-            salesHistory = [];
+            users = JSON.parse(JSON.stringify(defaultUsers));
+            products = JSON.parse(JSON.stringify(defaultProducts));
+            categories = JSON.parse(JSON.stringify(defaultCategories));
         }
+    }
+
+    function checkSalesResets() {
+        const now = Date.now();
+        const oneWeek = 7 * 24 * 60 * 60 * 1000;
+        const oneMonth = 30 * 24 * 60 * 60 * 1000;
+        
+        if (now - phoneSales.lastWeeklyReset > oneWeek) {
+            // Se asume que el corte se hizo o se fuerza el reinicio si pasó una semana sin corte.
+            // Opcionalmente se puede mostrar un alert aquí.
+            phoneSales.weekly = { total: 0, users: {} };
+            phoneSales.lastWeeklyReset = now;
+        }
+        if (now - phoneSales.lastMonthlyReset > oneMonth) {
+            phoneSales.monthly = { total: 0, users: {} };
+            phoneSales.lastMonthlyReset = now;
+        }
+        saveData();
     }
 
     function saveData() {
@@ -72,6 +176,9 @@
             localStorage.setItem('realphone_users',    JSON.stringify(users));
             localStorage.setItem('realphone_products', JSON.stringify(products));
             localStorage.setItem('realphone_sales',    JSON.stringify(salesHistory));
+            localStorage.setItem('realphone_ticket_counter', ticketCounter);
+            localStorage.setItem('realphone_categories', JSON.stringify(categories));
+            localStorage.setItem('realphone_phone_sales', JSON.stringify(phoneSales));
         } catch (e) {
             console.error('Error guardando datos:', e);
         }
@@ -120,9 +227,8 @@
     const ticketNumberEl     = document.getElementById('ticketNumber');
     const searchInput        = document.getElementById('searchInput');
     const currentUserDisplay = document.getElementById('currentUserDisplay');
-    const inventoryModal     = document.getElementById('inventoryModal');
-    const btnSimulateClientRequest = document.getElementById('btnSimulateClientRequest');
     const shortcutPanel      = document.getElementById('shortcutPanel');
+
 
     // ==================== AUTENTICACIÓN ====================
     document.getElementById('loginBtn').addEventListener('click', function () {
@@ -134,26 +240,49 @@
             return;
         }
 
-        const user = users.find(
-            u => u.username.toLowerCase() === username.toLowerCase() && u.password === password
+        // Buscar en los usuarios sincronizados (Firebase)
+        let user = users.find(
+            u => u.username && u.username.toLowerCase() === username.toLowerCase() && u.password === password
         );
 
+        // Fallback a los usuarios antiguos en localStorage si no están en Firebase
         if (!user) {
-            loginError.textContent = '❌ Usuario o contraseña incorrectos';
+            const localUsers = JSON.parse(localStorage.getItem('realphone_users')) || [];
+            user = localUsers.find(
+                u => u.username && u.username.toLowerCase() === username.toLowerCase() && u.password === password
+            );
+            
+            // Si el usuario antiguo se loguea, lo migramos a Firebase automáticamente
+            if (user && user.id) {
+                db.collection("users").doc(user.id.toString()).set(user, { merge: true }).catch(console.error);
+            }
+        }
+
+        if (!user) {
+            // Fallback a los usuarios por defecto
+            user = defaultUsers.find(
+                u => u.username.toLowerCase() === username.toLowerCase() && u.password === password
+            );
+        }
+
+        if (!user) {
+            loginError.textContent = '❌ Usuario o contraseña incorrectos. (Prueba con admin / 1234)';
             return;
         }
 
-        if (!user.active) {
+        if (user.active === false) {
             loginError.textContent = '⚠️ Usuario desactivado';
             return;
         }
 
         // Login exitoso
         currentUser   = user;
-        currentBranch = user.branch;
+        currentBranch = localStorage.getItem('realphone_current_store') || user.branch || 'Matriz';
         document.getElementById('branchSelect').value = currentBranch;
+        localStorage.setItem('realphone_current_store', currentBranch);
+
         currentUserDisplay.innerHTML =
-            '<i class="fas fa-user"></i> Le atiende: ' + user.fullName;
+            '<i class="fas fa-user"></i> Le atiende: ' + (user.fullName || user.username);
 
         loginOverlay.classList.add('hidden');
         posContainer.style.display = 'flex';
@@ -165,7 +294,7 @@
         if (posHdr) {
             posHdr.style.display = 'flex';
             const uEl = document.getElementById('posHeaderUser');
-            if (uEl) uEl.textContent = '| ' + user.fullName + ' [' + user.role + ']';
+            if (uEl) uEl.textContent = '| ' + (user.fullName || user.username) + ' [' + user.role + ']';
         }
 
         // Share session with Gestor de Tickets
@@ -174,10 +303,12 @@
         // Apply permissions UI
         applyPermissionsUI();
 
-        showToast('Bienvenido, ' + user.fullName, 'success');
+        showToast('Bienvenido, ' + (user.fullName || user.username), 'success');
         renderProducts();
         updateTicketDisplay();
     });
+
+
 
     // Navegar con Enter en el login
     document.getElementById('loginUser').addEventListener('keypress', function (e) {
@@ -205,14 +336,15 @@
         showToast('Sesión cerrada', 'info');
     });
 
-    // Cambio de sucursal (solo tester)
+    // Cambio de sucursal
     document.getElementById('branchSelect').addEventListener('change', function (e) {
-        if (currentUser && currentUser.role === 'tester') {
+        if (currentUser && (currentUser.role === 'tester' || currentUser.role === 'admin')) {
             currentBranch = e.target.value;
+            localStorage.setItem('realphone_current_store', currentBranch);
             showToast('Sucursal cambiada: ' + currentBranch, 'info');
-        } else if (currentUser) {
+        } else {
+            showToast('No tienes permiso para cambiar sucursal', 'error');
             e.target.value = currentBranch;
-            showToast('Solo el Tester puede cambiar la sucursal asignada', 'warning');
         }
     });
 
@@ -238,9 +370,6 @@
             clientBtn.addEventListener('click', openInvRequestModal);
             const actBtns = document.querySelector('.action-buttons');
             if (actBtns) actBtns.appendChild(clientBtn);
-        }
-        if (btnSimulateClientRequest) {
-            btnSimulateClientRequest.style.display = isPriv ? '' : 'none';
         }
         if (clientBtn) clientBtn.style.display = isPriv ? 'none' : '';
         // Pending requests panel for admin/tester
@@ -379,7 +508,7 @@
             date:    new Date().toISOString().slice(0, 10),
             time:    new Date().toLocaleTimeString(),
             branch:  currentBranch,
-            cashier: currentUser ? currentUser.fullName : 'N/A',
+            cashier: currentUser ? (currentUser.fullName || currentUser.username) : 'N/A',
             items:   ticketItems.map(i => ({ ...i })),
             total:   total,
             profit:  ticketItems.reduce((s, i) => s + ((i.price - i.cost) * i.qty), 0),
@@ -387,6 +516,27 @@
             change:  pago - total
         };
         salesHistory.push(sale);
+
+        // Metas: Verificar si se vendieron teléfonos
+        let phonesSold = 0;
+        ticketItems.forEach(item => {
+            const prod = products.find(p => p.id === item.id);
+            if (prod && prod.category === 'TEL') {
+                phonesSold += item.qty;
+            } else if (item.category === 'TEL') {
+                phonesSold += item.qty; // Respaldo por si se borró el producto
+            }
+        });
+
+        if (phonesSold > 0) {
+            const uid = currentUser ? currentUser.username : 'desconocido';
+            phoneSales.weekly.total += phonesSold;
+            phoneSales.weekly.users[uid] = (phoneSales.weekly.users[uid] || 0) + phonesSold;
+            
+            phoneSales.monthly.total += phonesSold;
+            phoneSales.monthly.users[uid] = (phoneSales.monthly.users[uid] || 0) + phonesSold;
+        }
+
         saveData();
 
         showToast('✅ Venta registrada — Ticket #' + ticketCounter + ' — Total: ' + formatMoney(total), 'success');
@@ -487,6 +637,26 @@
     });
 
     // ==================== CATEGORÍAS ====================
+    function renderCategories() {
+        const tabsContainer = document.getElementById('categoryTabs');
+        const selectEl = document.getElementById('addCategory');
+        if (!tabsContainer) return;
+
+        let html = '';
+        let selectHtml = '';
+        categories.forEach(cat => {
+            const isActive = activeCategory === cat.id ? 'active' : '';
+            html += `<button class="category-tab ${isActive}" data-cat="${cat.id}">${cat.icon} ${cat.name}</button>`;
+            
+            // Llenar select excluyendo "todas"
+            if (cat.id !== 'todas' && selectEl) {
+                selectHtml += `<option value="${cat.id}">${cat.icon} ${cat.name}</option>`;
+            }
+        });
+        tabsContainer.innerHTML = html;
+        if (selectEl) selectEl.innerHTML = selectHtml;
+    }
+
     document.getElementById('categoryTabs').addEventListener('click', function (e) {
         if (e.target.classList.contains('category-tab')) {
             document.querySelectorAll('.category-tab').forEach(b => b.classList.remove('active'));
@@ -496,122 +666,162 @@
         }
     });
 
+    const categoryModal = document.getElementById('categoryModal');
+    const btnAddNewCategory = document.getElementById('btnAddNewCategory');
+    if (btnAddNewCategory) {
+        btnAddNewCategory.addEventListener('click', () => {
+            categoryModal.style.display = 'flex';
+        });
+    }
+    document.getElementById('btnCloseCategory').addEventListener('click', () => {
+        categoryModal.style.display = 'none';
+    });
+    document.getElementById('btnSaveCategory').addEventListener('click', () => {
+        const name = document.getElementById('newCatName').value.trim();
+        const icon = document.getElementById('newCatIcon').value.trim() || '📦';
+        if (!name) return showToast('El nombre es obligatorio', 'warning');
+
+        const id = name.substring(0, 3).toUpperCase();
+        if (categories.some(c => c.id === id)) return showToast('El ID de categoría ya existe', 'warning');
+
+        categories.push({ id, name, icon });
+        saveData();
+        renderCategories();
+        document.getElementById('newCatName').value = '';
+        document.getElementById('newCatIcon').value = '';
+        categoryModal.style.display = 'none';
+        showToast('Categoría añadida', 'success');
+    });
+
     // ==================== MODAL DE INVENTARIO ====================
+
     function openInventoryModal() {
-        if (!isAdminOrTester()) {
-            showToast('Solo administradores o testers pueden abrir el inventario', 'warning');
-            return;
+        // Todos pueden abrir Configuración, pero los permisos se aplican dentro
+        const configModal = document.getElementById('configModal');
+        if (configModal) {
+            configModal.style.display = 'flex';
         }
-        inventoryModal.classList.add('active');
         resetImportState();
     }
 
     function closeInventoryModal() {
-        inventoryModal.classList.remove('active');
+        const configModal = document.getElementById('configModal');
+        if (configModal) {
+            configModal.style.display = 'none';
+        }
         resetImportState();
     }
 
+
     function resetImportState() {
         pendingImportData = [];
-        const preview = document.getElementById('importPreview');
-        const actions = document.getElementById('importActions');
-        const status  = document.getElementById('importStatus');
+        const preview = document.getElementById('importPreviewConfig');
+        const actions = document.getElementById('importActionsConfig');
+        const status  = document.getElementById('importStatusConfig');
         if (preview) { preview.style.display = 'none'; preview.innerHTML = ''; }
         if (actions) actions.style.display = 'none';
         if (status) status.innerHTML = '';
     }
 
-    document.getElementById('btnInventario').addEventListener('click', openInventoryModal);
-    document.getElementById('btnAddProduct').addEventListener('click', function() {
-        if (!isAdminOrTester()) { showToast('Solo administradores o testers pueden agregar productos', 'warning'); return; }
-        openInventoryModal();
-        document.querySelectorAll('.modal-tab').forEach(t => t.classList.remove('active'));
-        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-        document.querySelector('.modal-tab[data-tab="add"]').classList.add('active');
-        document.getElementById('tabAdd').classList.add('active');
-        setTimeout(() => document.getElementById('addSku').focus(), 100);
-    });
-    document.getElementById('btnCloseInventory').addEventListener('click', closeInventoryModal);
-    inventoryModal.addEventListener('click', function (e) {
-        if (e.target === inventoryModal) closeInventoryModal();
-    });
+    const btnAddProduct = document.getElementById('btnAddProduct');
+    if (btnAddProduct) {
+        btnAddProduct.addEventListener('click', function() {
+            if (!isAdminOrTester()) { showToast('Solo administradores o testers pueden agregar productos directamente', 'warning'); return; }
+            openInventoryModal();
+            document.querySelectorAll('.modal-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => { c.classList.remove('active'); c.style.display = 'none'; });
+            const tabBtn = document.querySelector('.modal-tab[data-tab="add"]');
+            if (tabBtn) tabBtn.classList.add('active');
+            const tabAdd = document.getElementById('tabAdd');
+            if (tabAdd) { tabAdd.classList.add('active'); tabAdd.style.display = 'block'; }
+            setTimeout(() => document.getElementById('addSku').focus(), 100);
+        });
+    }
+
+    const btnCloseConfigNew = document.getElementById('btnCloseConfig');
+    if (btnCloseConfigNew) {
+        btnCloseConfigNew.addEventListener('click', closeInventoryModal);
+    }
+
 
     // ==================== INVENTORY REQUEST MODAL ====================
     function openInvRequestModal() {
         const overlay = document.getElementById('invRequestOverlay');
-        if (!overlay) return;
-        const pendingPanel = document.getElementById('pendingInvRequests');
-        if (pendingPanel) pendingPanel.style.display = isAdminOrTester() ? '' : 'none';
-        if (isAdminOrTester()) renderPendingRequests();
-        overlay.style.display = 'flex';
-        overlay.style.flexDirection = 'column';
-        overlay.style.alignItems = 'center';
-        overlay.style.justifyContent = 'center';
-    }
-    function closeInvRequestModal() {
-        const overlay = document.getElementById('invRequestOverlay');
-        if (overlay) overlay.style.display = 'none';
+        if (overlay) overlay.classList.remove('hidden');
+        renderInvRequests();
     }
 
-    function simulateClientInventoryRequest() {
-        const demoRequest = {
-            id: 'req-demo-' + Date.now(),
-            type: 'salida',
-            sku: 'MICA-001',
-            qty: 2,
-            note: 'Simulación de cliente que solicita salida de inventario para reposición.',
-            requestedBy: 'Cliente Demo',
-            requestedAt: new Date().toLocaleString(),
-            status: 'pendiente'
-        };
-        const requests = JSON.parse(localStorage.getItem('realphone_inv_requests') || '[]');
-        requests.push(demoRequest);
-        localStorage.setItem('realphone_inv_requests', JSON.stringify(requests));
-        showToast('Simulación creada: solicitud de inventario enviada por cliente.', 'info');
-        openInvRequestModal();
-    }
-
-    const btnCloseInvReq = document.getElementById('btnCloseInvRequest');
-    if (btnCloseInvReq) btnCloseInvReq.addEventListener('click', closeInvRequestModal);
-    const btnCancelInvReq = document.getElementById('btnCancelInvReq');
-    if (btnCancelInvReq) btnCancelInvReq.addEventListener('click', closeInvRequestModal);
-
-    const btnSubmitInvReq = document.getElementById('btnSubmitInvReq');
-    if (btnSubmitInvReq) btnSubmitInvReq.addEventListener('click', function() {
-        const type = document.getElementById('invReqType').value;
-        const sku  = document.getElementById('invReqSku').value.trim();
-        const qty  = parseInt(document.getElementById('invReqQty').value) || 0;
-        const note = document.getElementById('invReqNote').value.trim();
-        if (!sku || qty <= 0) { showToast('Completa SKU y cantidad', 'warning'); return; }
-        const req = {
-            id: 'req-' + Date.now(),
-            type, sku, qty, note,
-            requestedBy: currentUser ? currentUser.fullName : 'Cliente',
-            requestedAt: new Date().toLocaleString(),
-            status: 'pendiente'
-        };
-        const requests = JSON.parse(localStorage.getItem('realphone_inv_requests') || '[]');
-        requests.push(req);
-        localStorage.setItem('realphone_inv_requests', JSON.stringify(requests));
-        showToast('Solicitud enviada. Un administrador la revisará pronto.', 'success');
-        closeInvRequestModal();
+    document.getElementById('btnCloseInvRequest')?.addEventListener('click', () => {
+        document.getElementById('invRequestOverlay')?.classList.add('hidden');
     });
+    document.getElementById('btnCancelInvReq')?.addEventListener('click', () => {
+        document.getElementById('invRequestOverlay')?.classList.add('hidden');
+    });
+    document.getElementById('btnSubmitInvReq')?.addEventListener('click', submitInvRequest);
 
-    function renderPendingRequests() {
-        const list = document.getElementById('invRequestList');
-        if (!list) return;
-        const requests = JSON.parse(localStorage.getItem('realphone_inv_requests') || '[]');
-        const pending = requests.filter(r => r.status === 'pendiente');
-        if (pending.length === 0) {
-            list.innerHTML = '<div style="text-align:center; color:var(--text-secondary); padding:1rem; font-size:0.85rem;">No hay solicitudes pendientes</div>';
+    async function submitInvRequest() {
+        const overlay = document.getElementById('invRequestOverlay');
+        const type = document.getElementById('invReqType')?.value || 'entrada';
+        const sku = document.getElementById('invReqSku')?.value.trim();
+        const qty = parseInt(document.getElementById('invReqQty')?.value, 10);
+        const note = document.getElementById('invReqNote')?.value.trim();
+
+        if (!sku) {
+            showToast('Ingresa el SKU del producto', 'warning');
             return;
         }
-        list.innerHTML = pending.map(r => `
-            <div class="inv-request-item">
+        if (isNaN(qty) || qty <= 0) {
+            showToast('Ingresa una cantidad válida', 'warning');
+            return;
+        }
+        if (!currentUser) {
+            showToast('Inicia sesión para enviar la solicitud', 'warning');
+            return;
+        }
+
+        const payload = {
+            type: type === 'salida' ? 'salida' : 'entrada',
+            sku,
+            qty,
+            note,
+            requestedBy: currentUser.username || currentUser.fullName || 'Usuario',
+            status: 'pending',
+            createdAt: new Date().toISOString()
+        };
+
+        try {
+            await db.collection('invRequests').add(payload);
+            invRequests.push({ id: 'local-' + Date.now(), ...payload });
+            renderInvRequests();
+            overlay?.classList.add('hidden');
+            showToast('Solicitud de inventario enviada', 'success');
+            document.getElementById('invReqSku').value = '';
+            document.getElementById('invReqQty').value = '';
+            document.getElementById('invReqNote').value = '';
+        } catch (err) {
+            console.error(err);
+            showToast('Error al enviar solicitud', 'error');
+        }
+    }
+    function renderInvRequests() {
+        const list = document.getElementById('invRequestsContainer');
+        const modalList = document.getElementById('invRequestList');
+        if (!list && !modalList) return;
+        const pending = invRequests.filter(r => r.status === 'pending');
+        const emptyHtml = '<div style="text-align:center; color:var(--text-secondary); padding:1rem; font-size:0.85rem;">No hay solicitudes pendientes</div>';
+        if (pending.length === 0) {
+            if (list) list.innerHTML = emptyHtml;
+            if (modalList) modalList.innerHTML = emptyHtml;
+            return;
+        }
+
+        const requestsHtml = pending.map(r => `
+            <div class="inv-request-item" style="background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:10px; display:flex; justify-content:space-between; align-items:center;">
                 <div>
-                    <span class="req-type-badge ${r.type}">${r.type.toUpperCase()}</span>
-                    <strong style="margin-left:6px;">${r.sku}</strong> — ${r.qty} uds.
-                    <div style="font-size:0.75rem; color:var(--text-secondary); margin-top:2px;">${r.requestedBy} — ${r.requestedAt}${r.note ? ' — ' + r.note : ''}</div>
+                    <span class="req-type-badge ${r.type}" style="font-size:0.7rem; font-weight:bold; padding:2px 6px; border-radius:4px; text-transform:uppercase; background:var(--accent-light); color:var(--accent); margin-right:6px;">${r.type}</span>
+                    <strong style="color:var(--text);">${r.sku}</strong> - ${r.qty || '-'} uds.
+                    <div style="font-size:0.75rem; color:var(--text-secondary); margin-top:2px;">Por: ${r.requestedBy} - ${new Date(r.createdAt).toLocaleString()}</div>
+                    ${r.type === 'add' ? `<div style="font-size:0.7rem; color:var(--text-secondary); margin-top:2px;">Nuevo Producto: ${r.name}</div>` : ''}
                 </div>
                 <div style="display:flex; gap:6px;">
                     <button class="action-btn" style="font-size:0.75rem; padding:5px 10px; color:var(--success); border-color:rgba(16,185,129,0.3);" onclick="window.approveInvRequest('${r.id}')"><i class="fas fa-check"></i></button>
@@ -619,34 +829,52 @@
                 </div>
             </div>
         `).join('');
+
+        if (list) list.innerHTML = requestsHtml;
+        if (modalList) modalList.innerHTML = requestsHtml;
     }
 
-    window.approveInvRequest = function(reqId) {
+    window.approveInvRequest = async function(reqId) {
         if (!isAdminOrTester()) return;
-        const requests = JSON.parse(localStorage.getItem('realphone_inv_requests') || '[]');
-        const req = requests.find(r => r.id === reqId);
+        const req = invRequests.find(r => r.id === reqId);
         if (!req) return;
-        const prod = products.find(p => p.sku.toLowerCase() === req.sku.toLowerCase());
-        if (!prod) { showToast('Producto no encontrado: ' + req.sku, 'error'); return; }
-        if (req.type === 'entrada') prod.stock += req.qty;
-        else prod.stock = Math.max(0, prod.stock - req.qty);
+
+        if (req.type === 'add') {
+            const existing = products.find(p => p.sku === req.sku);
+            if (existing) { showToast('El SKU ya existe. No se puede aprobar.', 'error'); return; }
+            products.push({
+                sku: req.sku, name: req.name, category: req.cat,
+                cost: req.cost, price: req.price, stock: req.stock,
+                active: true
+            });
+        } else {
+            const prod = products.find(p => p.sku.toLowerCase() === req.sku.toLowerCase());
+            if (!prod) { showToast('Producto no encontrado: ' + req.sku, 'error'); return; }
+            if (req.type === 'entrada') prod.stock += req.qty;
+            else prod.stock = Math.max(0, prod.stock - req.qty);
+        }
+
         saveData();
-        req.status = 'aprobado';
-        localStorage.setItem('realphone_inv_requests', JSON.stringify(requests));
         renderProducts(searchInput.value);
-        renderPendingRequests();
-        showToast('Solicitud aprobada: ' + req.type + ' de ' + req.qty + ' uds. de ' + req.sku, 'success');
+
+        try {
+            await db.collection("invRequests").doc(reqId).delete();
+            showToast('Solicitud aprobada', 'success');
+        } catch (err) {
+            console.error(err);
+            showToast('Error al actualizar Firebase', 'error');
+        }
     };
 
-    window.rejectInvRequest = function(reqId) {
+    window.rejectInvRequest = async function(reqId) {
         if (!isAdminOrTester()) return;
-        const requests = JSON.parse(localStorage.getItem('realphone_inv_requests') || '[]');
-        const req = requests.find(r => r.id === reqId);
-        if (!req) return;
-        req.status = 'rechazado';
-        localStorage.setItem('realphone_inv_requests', JSON.stringify(requests));
-        renderPendingRequests();
-        showToast('Solicitud rechazada', 'info');
+        try {
+            await db.collection("invRequests").doc(reqId).delete();
+            showToast('Solicitud rechazada', 'info');
+        } catch (err) {
+            console.error(err);
+            showToast('Error al rechazar en Firebase', 'error');
+        }
     };
 
     // Tabs del modal
@@ -655,16 +883,20 @@
             document.querySelectorAll('.modal-tab').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
             this.classList.add('active');
-            const tabMap = { add: 'tabAdd', import: 'tabImport', export: 'tabExport' };
-            const tabId = tabMap[this.dataset.tab] || 'tabAdd';
-            document.getElementById(tabId).classList.add('active');
+            const tabId = this.dataset.tab === 'add' ? 'tabAdd' : 
+                          this.dataset.tab === 'stock' ? 'tabStock' : 
+                          this.dataset.tab === 'importExport' ? 'tabImportExport' : 'tabAdd';
+            const targetContent = document.getElementById(tabId);
+            if (targetContent) {
+                targetContent.classList.add('active');
+                targetContent.style.display = 'block';
+            }
         });
     });
 
     // ==================== AGREGAR PRODUCTO (FORMULARIO) ====================
-    document.getElementById('addProductForm').addEventListener('submit', function (e) {
+    document.getElementById('addProductForm').addEventListener('submit', async function (e) {
         e.preventDefault();
-        if (!isAdminOrTester()) { showToast('Sin permisos para agregar productos', 'warning'); return; }
 
         const sku   = document.getElementById('addSku').value.trim().toUpperCase();
         const name  = document.getElementById('addName').value.trim();
@@ -681,6 +913,25 @@
         if (price <= 0) {
             showToast('El precio de venta debe ser mayor a 0', 'warning');
             return;
+        }
+
+        if (!isAdminOrTester()) { 
+            try {
+                await db.collection("invRequests").add({
+                    type: "add",
+                    sku, name, cat, cost, price, stock,
+                    requestedBy: currentUser.username,
+                    status: "pending",
+                    createdAt: new Date().toISOString()
+                });
+                showToast('Solicitud de producto enviada a administradores', 'success');
+                this.reset();
+                closeInventoryModal();
+            } catch (err) {
+                console.error(err);
+                showToast('Error al enviar solicitud', 'error');
+            }
+            return; 
         }
 
         // Verificar SKU duplicado
@@ -722,34 +973,103 @@
         document.getElementById('addSku').focus();
     });
 
+    function applyAdminTabs() {
+        const isPriv = isAdminOrTester();
+        const tabStock = document.getElementById('btnTabStock');
+        const tabImportExport = document.getElementById('btnTabImportExport');
+        const tabUsers = document.getElementById('btnTabUsers');
+        const tabRequests = document.getElementById('btnTabRequests');
+
+        if (tabStock) tabStock.style.display = isPriv ? 'inline-block' : 'none';
+        if (tabImportExport) tabImportExport.style.display = isPriv ? 'inline-block' : 'none';
+        if (tabUsers) tabUsers.style.display = isAdmin() ? 'inline-block' : 'none';
+        if (tabRequests) tabRequests.style.display = isPriv ? 'inline-block' : 'none';
+    }
+
+    // ==================== INVENTARIO (NUEVOS TABS) ====================
+
+    // Lógica de pestañas (Tabs) en Inventario
+    document.querySelectorAll('.modal-tab').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('.modal-tab').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+            
+            this.classList.add('active');
+            const targetId = 'tab' + this.dataset.tab.charAt(0).toUpperCase() + this.dataset.tab.slice(1);
+            const targetContent = document.getElementById(targetId);
+            if(targetContent) {
+                targetContent.classList.add('active');
+                targetContent.style.display = 'block';
+            }
+        });
+    });
+
+    // Lógica botones manuales de Stock
+    document.getElementById('btnDoStockIn')?.addEventListener('click', () => {
+        closeInventoryModal();
+        handleStockEntry();
+    });
+    document.getElementById('btnDoStockOut')?.addEventListener('click', () => {
+        closeInventoryModal();
+        handleStockExit();
+    });
+
+    // Añadir categora (Admin)
+    document.getElementById('btnAddNewCategory')?.addEventListener('click', () => {
+        if(currentUser?.role !== 'admin') return showToast('Solo admin', 'error');
+        const catName = prompt('Nombre de la nueva categora (ej. Telefonía):');
+        if(!catName) return;
+        const icon = prompt('Icono (emoji):') || '📦';
+        const id = catName.substring(0, 3).toUpperCase();
+        if(categories.some(c => c.id === id)) return showToast('El ID de categoría ya existe', 'warning');
+        
+        categories.push({ id, name: catName, icon });
+        saveData();
+        renderCategories();
+        showToast('Categora añadida', 'success');
+        
+        // Refrescar selector en el form
+        const select = document.getElementById('addCategory');
+        const opt = document.createElement('option');
+        opt.value = id; opt.textContent = catName;
+        select.appendChild(opt);
+        select.value = id;
+    });
+
+    // ==================== AÑADIR PRODUCTOS (MANUAL) ====================
     // ==================== IMPORTACIÓN DE EXCEL ====================
-    const dropZone  = document.getElementById('dropZone');
-    const fileInput = document.getElementById('fileInput');
+    const dropZone  = document.getElementById('dropZone') || document.getElementById('dropZoneConfig');
+    const fileInput = document.getElementById('fileInput') || document.getElementById('excelFileConfig');
 
-    // Click en la zona de drop
-    dropZone.addEventListener('click', () => fileInput.click());
+    if (dropZone && fileInput) {
+        // Click en la zona de drop
+        dropZone.addEventListener('click', () => fileInput.click());
 
-    // Drag & Drop
-    dropZone.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        dropZone.classList.add('drag-over');
-    });
+        // Drag & Drop
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('drag-over');
+        });
 
-    dropZone.addEventListener('dragleave', () => {
-        dropZone.classList.remove('drag-over');
-    });
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('drag-over');
+        });
 
-    dropZone.addEventListener('drop', (e) => {
-        e.preventDefault();
-        dropZone.classList.remove('drag-over');
-        const files = e.dataTransfer.files;
-        if (files.length > 0) processExcelFile(files[0]);
-    });
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('drag-over');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) processExcelFile(files[0]);
+        });
+    }
 
-    fileInput.addEventListener('change', (e) => {
-        if (e.target.files.length > 0) processExcelFile(e.target.files[0]);
-        fileInput.value = ''; // Reset para permitir seleccionar el mismo archivo
-    });
+    if (fileInput) {
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) processExcelFile(e.target.files[0]);
+            fileInput.value = ''; // Reset para permitir seleccionar el mismo archivo
+        });
+    }
 
     function processExcelFile(file) {
         const validTypes = [
@@ -763,7 +1083,8 @@
             return;
         }
 
-        const statusEl = document.getElementById('importStatus');
+        const statusEl = document.getElementById('importStatusConfig');
+        if (!statusEl) return;
         statusEl.innerHTML = '<span class="status-badge warning"><i class="fas fa-spinner fa-spin"></i> Procesando archivo...</span>';
 
         const reader = new FileReader();
@@ -775,18 +1096,24 @@
                 // Leer la primera hoja
                 const sheetName = workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[sheetName];
-                const jsonData  = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+                const jsonData  = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+                // Remover la primera fila si es de encabezados (opcional, pero útil si el usuario la deja)
+                // Checamos si la primera fila tiene "SKU" o "Descripción"
+                if (jsonData.length > 0 && String(jsonData[0][0]).toLowerCase().includes('sku')) {
+                    jsonData.shift();
+                }
 
                 if (jsonData.length === 0) {
                     statusEl.innerHTML = '<span class="status-badge error"><i class="fas fa-exclamation-circle"></i> El archivo está vacío</span>';
                     return;
                 }
 
-                // Mapear columnas (flexible)
+                // Mapear columnas estricto
                 const mapped = mapImportData(jsonData);
 
                 if (mapped.length === 0) {
-                    statusEl.innerHTML = '<span class="status-badge error"><i class="fas fa-exclamation-circle"></i> No se encontraron columnas válidas (SKU, Nombre, Precio)</span>';
+                    statusEl.innerHTML = '<span class="status-badge error"><i class="fas fa-exclamation-circle"></i> No se encontraron columnas válidas</span>';
                     return;
                 }
 
@@ -795,7 +1122,8 @@
 
                 // Mostrar preview
                 renderImportPreview(mapped);
-                document.getElementById('importActions').style.display = 'flex';
+                const actionsEl = document.getElementById('importActionsConfig');
+                if (actionsEl) actionsEl.style.display = 'flex';
 
             } catch (err) {
                 console.error('Error procesando Excel:', err);
@@ -811,91 +1139,95 @@
     }
 
     function mapImportData(jsonData) {
-        // Mapeo flexible de columnas — soporta varios nombres
-        const colMap = {
-            sku:      ['sku', 'codigo', 'código', 'code', 'cod', 'clave'],
-            name:     ['nombre', 'name', 'descripcion', 'descripción', 'producto', 'articulo', 'artículo'],
-            category: ['categoria', 'categoría', 'category', 'cat', 'tipo'],
-            cost:     ['costo', 'cost', 'precio_costo', 'costo_unitario'],
-            price:    ['precio', 'price', 'precio_venta', 'pvp', 'precio_unitario'],
-            stock:    ['stock', 'existencia', 'existencias', 'cantidad', 'qty', 'inventario', 'disponible']
-        };
+        // Mapeo estricto por columnas
+        // A: SKU (0)
+        // B: Descripción (1)
+        // C: Existencia (2)
+        // D: Precio (3)
+        // E: Categoría (4)
+        // F: Costo (5)
+        
+        return jsonData.map(row => {
+            // jsonData es un array de arrays al usar header: 1
+            const sku   = String(row[0] || '').trim();
+            const name  = String(row[1] || '').trim();
+            const stock = parseInt(row[2]) || 0;
+            const price = parseFloat(row[3]) || 0;
+            let rawCat  = String(row[4] || '').trim();
+            if (!rawCat) rawCat = 'sin_categoria';
+            const cat   = rawCat.toLowerCase().replace(/\s+/g, '_');
+            const cost  = parseFloat(row[5]) || 0;
 
-        function findCol(row, aliases) {
-            const keys = Object.keys(row);
-            for (const alias of aliases) {
-                const found = keys.find(k => k.toLowerCase().trim() === alias);
-                if (found) return row[found];
-            }
-            return undefined;
-        }
+            if (!sku && !name) return null; // Fila vacía
 
-        return jsonData
-            .map(row => {
-                const sku   = String(findCol(row, colMap.sku)  || '').trim();
-                const name  = String(findCol(row, colMap.name) || '').trim();
-                const cat   = String(findCol(row, colMap.category) || 'sin_categoria').trim().toLowerCase().replace(/\s+/g, '_');
-                const cost  = parseFloat(findCol(row, colMap.cost))  || 0;
-                const price = parseFloat(findCol(row, colMap.price)) || 0;
-                const stock = parseInt(findCol(row, colMap.stock))   || 0;
-
-                if (!sku && !name) return null; // Fila vacía
-
-                return {
-                    sku:      sku || 'SIN-SKU',
-                    name:     name || 'Producto sin nombre',
-                    category: cat,
-                    cost:     cost,
-                    price:    price,
-                    stock:    stock
-                };
-            })
-            .filter(Boolean);
+            return {
+                sku:      sku || 'SIN-SKU',
+                name:     name || 'Producto sin nombre',
+                category: cat,
+                cost:     cost,
+                price:    price,
+                stock:    stock
+            };
+        }).filter(Boolean);
     }
 
     function renderImportPreview(data) {
-        const previewEl = document.getElementById('importPreview');
+        const previewEl = document.getElementById('importPreviewConfig');
+        if (!previewEl) return;
         previewEl.style.display = 'block';
 
-        let html = `<table>
-            <thead>
+        let html = `
+            <table class="ticket-table" style="font-size:0.8rem;">
+                <thead>
+                    <tr>
+                        <th>Acción</th>
+                        <th>SKU</th>
+                        <th>Nombre</th>
+                        <th>Categoría</th>
+                        <th>Costo</th>
+                        <th>Precio</th>
+                        <th>Stock</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+
+        const limit = Math.min(data.length, 100); // Mostrar max 100
+        for (let i = 0; i < limit; i++) {
+            const item = data[i];
+            const existingIdx = products.findIndex(p => p.sku.toLowerCase() === item.sku.toLowerCase());
+
+            let badge = '';
+            if (existingIdx >= 0) {
+                badge = '<span class="status-badge warning" style="padding:2px 4px;font-size:0.7rem;">Actualizar</span>';
+            } else {
+                badge = '<span class="status-badge success" style="padding:2px 4px;font-size:0.7rem;">Nuevo</span>';
+            }
+
+            html += `
                 <tr>
-                    <th>#</th>
-                    <th>SKU</th>
-                    <th>Nombre</th>
-                    <th>Categoría</th>
-                    <th>Costo</th>
-                    <th>Precio</th>
-                    <th>Stock</th>
-                    <th>Estado</th>
+                    <td>${badge}</td>
+                    <td><strong>${item.sku}</strong></td>
+                    <td>${item.name}</td>
+                    <td>${item.category}</td>
+                    <td>$${item.cost.toFixed(2)}</td>
+                    <td>$${item.price.toFixed(2)}</td>
+                    <td>${item.stock}</td>
                 </tr>
-            </thead>
-            <tbody>`;
+            `;
+        }
 
-        data.forEach((item, idx) => {
-            const existing = products.find(p => p.sku.toLowerCase() === item.sku.toLowerCase());
-            const status = existing
-                ? '<span class="status-badge warning"><i class="fas fa-sync"></i> Actualizar</span>'
-                : '<span class="status-badge success"><i class="fas fa-plus"></i> Nuevo</span>';
+        if (data.length > limit) {
+            html += `<tr><td colspan="7" style="text-align:center;color:#64748b;">... y ${data.length - limit} productos más ...</td></tr>`;
+        }
 
-            html += `<tr>
-                <td>${idx + 1}</td>
-                <td>${item.sku}</td>
-                <td>${item.name}</td>
-                <td>${item.category}</td>
-                <td>${formatMoney(item.cost)}</td>
-                <td>${formatMoney(item.price)}</td>
-                <td>${item.stock}</td>
-                <td>${status}</td>
-            </tr>`;
-        });
-
-        html += '</tbody></table>';
+        html += `</tbody></table>`;
         previewEl.innerHTML = html;
     }
 
     // Confirmar importación
-    document.getElementById('btnConfirmImport').addEventListener('click', function () {
+    const btnConfirmImport = document.getElementById('btnConfirmImport') || document.getElementById('btnConfirmImportConfig');
+    if (btnConfirmImport) btnConfirmImport.addEventListener('click', function () {
         if (pendingImportData.length === 0) {
             showToast('No hay datos para importar', 'warning');
             return;
@@ -938,7 +1270,8 @@
     });
 
     // Cancelar importación
-    document.getElementById('btnCancelImport').addEventListener('click', resetImportState);
+    const btnCancelImport = document.getElementById('btnCancelImport') || document.getElementById('btnCancelImportConfig');
+    if (btnCancelImport) btnCancelImport.addEventListener('click', resetImportState);
 
     // ==================== EXPORTACIÓN DE EXCEL ====================
     // Selección de tipo de exportación
@@ -950,7 +1283,8 @@
         });
     });
 
-    document.getElementById('btnExport').addEventListener('click', function () {
+    const btnExport = document.getElementById('btnExport') || document.getElementById('btnExportConfig');
+    if (btnExport) btnExport.addEventListener('click', function () {
         if (typeof XLSX === 'undefined') {
             showToast('Error: Librería SheetJS no cargada', 'error');
             return;
@@ -962,6 +1296,7 @@
 
         switch (selectedExportType) {
             case 'full':
+            case 'completo':
                 wsData = products.map((p, idx) => ({
                     '#':          idx + 1,
                     'SKU':        p.sku,
@@ -976,7 +1311,8 @@
                 break;
 
             case 'stock':
-                wsData = products.map((p, idx) => ({
+            case 'faltantes':
+                wsData = products.filter(p => p.stock <= 0).map((p, idx) => ({
                     '#':      idx + 1,
                     'SKU':    p.sku,
                     'Nombre': p.name,
@@ -1009,9 +1345,11 @@
             ws['!cols'] = colWidths;
 
             const sheetNames = {
-                full:     'Inventario_Completo',
-                stock:    'Stock',
-                template: 'Plantilla'
+                full:      'Inventario_Completo',
+                completo:  'Inventario_Completo',
+                stock:     'Stock',
+                faltantes: 'Stock',
+                template:  'Plantilla'
             };
 
             XLSX.utils.book_append_sheet(wb, ws, sheetNames[selectedExportType] || 'Datos');
@@ -1092,11 +1430,17 @@
 
     function openTutorial() {
         tutStep = 0;
-        tutorialOverlay.classList.add('active');
+        if (tutorialOverlay) {
+            tutorialOverlay.classList.add('active');
+            tutorialOverlay.style.display = 'flex';
+        }
         renderTutStep();
     }
     function closeTutorial() {
-        tutorialOverlay.classList.remove('active');
+        if (tutorialOverlay) {
+            tutorialOverlay.classList.remove('active');
+            tutorialOverlay.style.display = 'none';
+        }
         stopTutVoice();
     }
     function renderTutStep() {
@@ -1185,7 +1529,6 @@
         setVoiceStatus('Voz lista', false);
     }
 
-    if (btnTutorial) btnTutorial.addEventListener('click', openTutorial);
     if (btnCloseTut) btnCloseTut.addEventListener('click', closeTutorial);
     if (btnTutNext) btnTutNext.addEventListener('click', () => {
         if (tutStep < TOTAL_STEPS - 1) { tutStep++; renderTutStep(); }
@@ -1196,7 +1539,6 @@
     });
     if (btnTutSpeak) btnTutSpeak.addEventListener('click', speakTutStep);
     if (btnTutStop)  btnTutStop.addEventListener('click', stopTutVoice);
-    if (btnSimulateClientRequest) btnSimulateClientRequest.addEventListener('click', simulateClientInventoryRequest);
     // Load voices async
     if (window.speechSynthesis) window.speechSynthesis.onvoiceschanged = function() {};
 
@@ -1218,11 +1560,13 @@
 
         // Cerrar modal/panel con Escape
         if (e.key === 'Escape') {
-            if (inventoryModal.classList.contains('active')) {
-                closeInventoryModal();
+            const configModal = document.getElementById('configModal');
+            if (configModal && configModal.style.display !== 'none') {
+                configModal.style.display = 'none';
                 e.preventDefault();
                 return;
             }
+
             if (shortcutPanelVisible) {
                 toggleShortcutPanel();
                 e.preventDefault();
@@ -1310,13 +1654,8 @@
         }
     });
 
-    function isTyping(e) {
-        const tag = (e.target || e.srcElement).tagName;
-        return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
-    }
-
     // ==================== FUNCIONES DE ATAJOS ====================
-    function handleStockEntry() {
+    async function handleStockEntry() {
         const sku = prompt('🔹 Entrada de inventario\nIngresa el SKU del producto:');
         if (!sku) return;
 
@@ -1332,14 +1671,32 @@
             return;
         }
 
+        if (!isAdminOrTester()) {
+            try {
+                await db.collection("invRequests").add({
+                    type: "entrada",
+                    sku: product.sku,
+                    name: product.name,
+                    qty: qty,
+                    requestedBy: currentUser.username,
+                    status: "pending",
+                    createdAt: new Date().toISOString()
+                });
+                showToast('Solicitud de entrada enviada a administradores', 'success');
+            } catch (err) {
+                console.error(err);
+                showToast('Error al enviar solicitud', 'error');
+            }
+            return;
+        }
+
         product.stock += qty;
         saveData();
         renderProducts(searchInput.value);
         showToast('✅ Entrada registrada: +' + qty + ' unidades de ' + product.name + ' (Stock: ' + product.stock + ')', 'success');
     }
 
-    function handleStockExit() {
-        if (!isAdminOrTester()) { showToast('Sin permisos para registrar salidas', 'warning'); return; }
+    async function handleStockExit() {
         const sku = prompt('📤 Salida de inventario\nIngresa el SKU del producto:');
         if (!sku) return;
 
@@ -1354,8 +1711,28 @@
             showToast('Cantidad no válida', 'warning');
             return;
         }
+
         if (qty > product.stock) {
             showToast('Stock insuficiente. Solo hay ' + product.stock + ' unidades.', 'warning');
+            return;
+        }
+
+        if (!isAdminOrTester()) {
+            try {
+                await db.collection("invRequests").add({
+                    type: "salida",
+                    sku: product.sku,
+                    name: product.name,
+                    qty: qty,
+                    requestedBy: currentUser.username,
+                    status: "pending",
+                    createdAt: new Date().toISOString()
+                });
+                showToast('Solicitud de salida enviada a administradores', 'success');
+            } catch (err) {
+                console.error(err);
+                showToast('Error al enviar solicitud', 'error');
+            }
             return;
         }
 
@@ -1430,6 +1807,112 @@
         showToast('Artículo común agregado: ' + name, 'success');
     }
 
+    // ==================== CONFIG & METAS ====================
+    const configModal = document.getElementById('configModal');
+    const welcomeModal = document.getElementById('welcomeModal');
+
+    document.getElementById('btnConfig').addEventListener('click', () => {
+        configModal.style.display = 'flex';
+    });
+    document.getElementById('btnCloseConfig').addEventListener('click', () => {
+        configModal.style.display = 'none';
+    });
+
+    document.getElementById('btnMetas').addEventListener('click', () => {
+        updateMetasUI();
+        configModal.style.display = 'flex';
+        // Switch to metas tab
+        document.querySelectorAll('.modal-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => { c.classList.remove('active'); c.style.display = 'none'; });
+        const tabBtn = document.querySelector('.modal-tab[data-tab="metas"]');
+        if (tabBtn) tabBtn.classList.add('active');
+        const tabMetas = document.getElementById('tabMetas');
+        if (tabMetas) { tabMetas.classList.add('active'); tabMetas.style.display = 'block'; }
+    });
+
+    // Enlaces de configuración
+    document.getElementById('btnTutorialConfig').addEventListener('click', function () {
+        configModal.style.display = 'none';
+        openTutorial();
+    });
+
+    function updateMetasUI() {
+        const txtWeekly = document.getElementById('txtWeekly');
+        const barWeekly = document.getElementById('barWeekly');
+        const txtMonthly = document.getElementById('txtMonthly');
+        const barMonthly = document.getElementById('barMonthly');
+
+        if (!phoneSales || !phoneSales.weekly || !phoneSales.monthly) {
+            phoneSales = {
+                weekly: { total: 0, users: {} },
+                monthly: { total: 0, users: {} },
+                lastWeeklyReset: Date.now(),
+                lastMonthlyReset: Date.now()
+            };
+        }
+
+        const weeklyTotal = phoneSales.weekly.total || 0;
+        const monthlyTotal = phoneSales.monthly.total || 0;
+
+        txtWeekly.textContent = `${weeklyTotal} / 15`;
+        barWeekly.style.width = Math.min((weeklyTotal / 15) * 100, 100) + '%';
+        
+        txtMonthly.textContent = `${monthlyTotal} / 60`;
+        barMonthly.style.width = Math.min((monthlyTotal / 60) * 100, 100) + '%';
+
+        // Resumen usuarios
+        const usersDiv = document.getElementById('metasUsers');
+        usersDiv.innerHTML = '';
+        for (const [uid, count] of Object.entries(phoneSales.weekly.users)) {
+            const perc = ((count / weeklyTotal) * 100).toFixed(1);
+            usersDiv.innerHTML += `<div><strong>${uid}</strong>: ${count} equipos (${isNaN(perc) ? 0 : perc}%)</div>`;
+        }
+    }
+
+    // Bienvenida
+    function checkWelcome() {
+        if (!localStorage.getItem('realphone_welcomed')) {
+            welcomeModal.style.display = 'flex';
+        }
+    }
+    
+    document.getElementById('btnWelcomeNo').addEventListener('click', () => {
+        welcomeModal.style.display = 'none';
+        localStorage.setItem('realphone_welcomed', 'true');
+        showToast('Puedes acceder al tutorial desde la pestaña de "Configuración" si lo necesitas', 'info');
+    });
+
+    document.getElementById('btnWelcomeYes').addEventListener('click', () => {
+        welcomeModal.style.display = 'none';
+        localStorage.setItem('realphone_welcomed', 'true');
+        openTutorial();
+    });
+
+    // Importación (Config)
+    const excelFileConfig = document.getElementById('excelFileConfig');
+    if (excelFileConfig) excelFileConfig.addEventListener('change', processExcelFile);
+    
+    // Ya no es necesario delegar los clics de Configuración porque los unificamos arriba
+    /*
+    document.getElementById('btnConfirmImportConfig').addEventListener('click', () => {
+        document.getElementById('btnConfirmImport').click();
+    });
+    document.getElementById('btnCancelImportConfig').addEventListener('click', () => {
+        document.getElementById('btnCancelImport').click();
+    });
+
+    // Exportar (Config)
+    const btnExportConfig = document.getElementById('btnExportConfig');
+    if (btnExportConfig) btnExportConfig.addEventListener('click', () => document.getElementById('btnExport').click());
+    document.querySelectorAll('#configModal .export-option').forEach(opt => {
+        opt.addEventListener('click', function () {
+            document.querySelectorAll('#configModal .export-option').forEach(o => o.classList.remove('selected'));
+            this.classList.add('selected');
+            selectedExportType = this.dataset.type;
+        });
+    });
+    */
+
     // ==================== INICIALIZACIÓN ====================
     loadData();
     console.log('Sistema RealPhone POS inicializado');
@@ -1440,7 +1923,9 @@
         users.map(u => ({ user: u.username, pass: u.password, role: u.role }))
     );
 
+    renderCategories();
     renderProducts();
     updateTicketDisplay();
+    checkWelcome();
 
 })();
