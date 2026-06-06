@@ -21,3 +21,9 @@ cd "C:\Users\thepa\OneDrive\Datos adjuntos\gestor-tickets"
 npm install
 npm test
 ```
+
+## Notas de control de versiones
+
+- Este repositorio se mantiene en la rama `main`.
+- Cambios generados por el asistente se commitean y se pushean automáticamente con mensajes tipo `Auto: ...`.
+- Se excluyen carpetas locales irrelevantes como `.vscode/` en `.gitignore`.
