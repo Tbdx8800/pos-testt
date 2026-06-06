@@ -747,15 +747,29 @@ db.enablePersistence().catch(function(err) {
     // ==================== INVENTORY REQUEST MODAL ====================
     function openInvRequestModal() {
         const overlay = document.getElementById('invRequestOverlay');
-        if (overlay) overlay.classList.remove('hidden');
+        if (overlay) {
+            overlay.style.display = 'flex';
+            overlay.classList.add('active');
+            overlay.classList.remove('hidden');
+        }
         renderInvRequests();
     }
 
     document.getElementById('btnCloseInvRequest')?.addEventListener('click', () => {
-        document.getElementById('invRequestOverlay')?.classList.add('hidden');
+        const overlay = document.getElementById('invRequestOverlay');
+        if (overlay) {
+            overlay.classList.remove('active');
+            overlay.classList.add('hidden');
+            overlay.style.display = 'none';
+        }
     });
     document.getElementById('btnCancelInvReq')?.addEventListener('click', () => {
-        document.getElementById('invRequestOverlay')?.classList.add('hidden');
+        const overlay = document.getElementById('invRequestOverlay');
+        if (overlay) {
+            overlay.classList.remove('active');
+            overlay.classList.add('hidden');
+            overlay.style.display = 'none';
+        }
     });
     document.getElementById('btnSubmitInvReq')?.addEventListener('click', submitInvRequest);
 
@@ -1812,15 +1826,24 @@ db.enablePersistence().catch(function(err) {
     const welcomeModal = document.getElementById('welcomeModal');
 
     document.getElementById('btnConfig').addEventListener('click', () => {
-        configModal.style.display = 'flex';
+        if (configModal) {
+            configModal.style.display = 'flex';
+            configModal.classList.add('active');
+        }
     });
     document.getElementById('btnCloseConfig').addEventListener('click', () => {
-        configModal.style.display = 'none';
+        if (configModal) {
+            configModal.classList.remove('active');
+            configModal.style.display = 'none';
+        }
     });
 
     document.getElementById('btnMetas').addEventListener('click', () => {
         updateMetasUI();
-        configModal.style.display = 'flex';
+        if (configModal) {
+            configModal.style.display = 'flex';
+            configModal.classList.add('active');
+        }
         // Switch to metas tab
         document.querySelectorAll('.modal-tab').forEach(t => t.classList.remove('active'));
         document.querySelectorAll('.tab-content').forEach(c => { c.classList.remove('active'); c.style.display = 'none'; });
