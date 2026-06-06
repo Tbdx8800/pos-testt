@@ -1111,7 +1111,8 @@
     function getTutorialAudioFile(stepIndex) {
         const activeStep = TUTORIAL_STEPS[stepIndex];
         if (!activeStep) return null;
-        return activeStep.dataset.audio || `audio ${stepIndex + 1}.mp3`;
+        const file = activeStep.dataset.audio || `audio ${stepIndex + 1}.mp3`;
+        return `audios/${file}`;
     }
 
     function setVoiceStatus(text, speaking = false) {
