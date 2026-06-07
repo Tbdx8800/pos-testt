@@ -1152,6 +1152,49 @@ db.enablePersistence().catch(function(err) {
         reader.readAsArrayBuffer(file);
     }
 
+    function normalizeCategoryText(text) {
+        return String(text || '')
+            .normalize('NFD')
+            .replace(/\p{Diacritic}/gu, '')
+            .replace(/[_\-\/]+/g, ' ')
+            .replace(/[^a-z0-9\s]/gi, ' ')
+            .trim()
+            .toLowerCase();
+    }
+
+    function matchImportCategory(rawCat) {
+        const normalizedRaw = normalizeCategoryText(rawCat);
+        if (!normalizedRaw) return 'sin_categoria';
+
+        // Buscar coincidencia exacta con id o nombre
+        for (const cat of categories) {
+            const normalizedId = normalizeCategoryText(cat.id);
+            const normalizedName = normalizeCategoryText(cat.name);
+            if (normalizedRaw === normalizedId || normalizedRaw === normalizedName) {
+                return cat.id;
+            }
+        }
+
+        const rawTokens = normalizedRaw.split(/\s+/).filter(Boolean);
+
+        // Buscar coincidencias parciales entre palabras y el nombre de categoría
+        for (const cat of categories) {
+            const normalizedId = normalizeCategoryText(cat.id);
+            const normalizedName = normalizeCategoryText(cat.name);
+            const nameTokens = normalizedName.split(/\s+/).filter(Boolean);
+
+            if (rawTokens.includes(normalizedId)) return cat.id;
+            if (rawTokens.includes(normalizedName)) return cat.id;
+            if (nameTokens.every(token => rawTokens.includes(token))) return cat.id;
+            if (nameTokens.some(token => rawTokens.includes(token))) return cat.id;
+            if (normalizedRaw.includes(normalizedName)) return cat.id;
+            if (normalizedRaw.includes(normalizedId)) return cat.id;
+        }
+
+        // Si no hay coincidencia, conservar la categoría tal cual
+        return normalizedRaw.replace(/\s+/g, '_') || 'sin_categoria';
+    }
+
     function mapImportData(jsonData) {
         // Mapeo estricto por columnas
         // A: SKU (0)
@@ -1167,9 +1210,8 @@ db.enablePersistence().catch(function(err) {
             const name  = String(row[1] || '').trim();
             const stock = parseInt(row[2]) || 0;
             const price = parseFloat(row[3]) || 0;
-            let rawCat  = String(row[4] || '').trim();
-            if (!rawCat) rawCat = 'sin_categoria';
-            const cat   = rawCat.toLowerCase().replace(/\s+/g, '_');
+            const rawCat = String(row[4] || '').trim();
+            const cat    = matchImportCategory(rawCat);
             const cost  = parseFloat(row[5]) || 0;
 
             if (!sku && !name) return null; // Fila vacía
