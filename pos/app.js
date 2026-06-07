@@ -54,13 +54,13 @@ db.enablePersistence().catch(function(err) {
     let currentBranch = 'principal';
     let ticketItems   = [];
     let ticketCounter = 1;
-    let activeCategory = 'todas';
+    let activeCategory = 'TOD';
     let pendingImportData = [];
     let selectedExportType = 'full';
     let invRequests = []; // Solicitudes de inventario
 
     const defaultCategories = [
-        { id: 'TOD', icon: '📦', name: 'Todas' },
+        { id: 'TOD', icon: '📦', name: 'Todos' },
         { id: 'FUN', icon: '🛡️', name: 'Fundas' },
         { id: 'MIC', icon: '📱', name: 'Micas' },
         { id: 'TEL', icon: '📞', name: 'Telefonía' }
@@ -127,21 +127,24 @@ db.enablePersistence().catch(function(err) {
             // Migrar categorías antiguas a 3 letras mayúsculas
             let needsMigration = false;
             categories.forEach(c => {
-                if (c.id === 'todas') { c.id = 'TOD'; needsMigration = true; }
-                if (c.id === 'fundas') { c.id = 'FUN'; needsMigration = true; }
-                if (c.id === 'micas') { c.id = 'MIC'; needsMigration = true; }
-                if (c.id === 'telefonía' || c.id === 'telefonia') { c.id = 'TEL'; needsMigration = true; }
+                const lowerId = String(c.id || '').toLowerCase();
+                if (lowerId === 'todas' || lowerId === 'todos' || lowerId === 'tod') { c.id = 'TOD'; needsMigration = true; }
+                if (lowerId === 'fundas') { c.id = 'FUN'; needsMigration = true; }
+                if (lowerId === 'micas') { c.id = 'MIC'; needsMigration = true; }
+                if (lowerId === 'telefonía' || lowerId === 'telefonia' || lowerId === 'tel') { c.id = 'TEL'; needsMigration = true; }
             });
             
             if (needsMigration) {
                 products.forEach(p => {
-                    if (p.category === 'fundas') p.category = 'FUN';
-                    if (p.category === 'micas') p.category = 'MIC';
-                    if (p.category === 'telefonía' || p.category === 'telefonia') p.category = 'TEL';
+                    const lowerCat = String(p.category || '').toLowerCase();
+                    if (lowerCat === 'fundas') p.category = 'FUN';
+                    if (lowerCat === 'micas') p.category = 'MIC';
+                    if (lowerCat === 'telefonía' || lowerCat === 'telefonia') p.category = 'TEL';
                 });
                 saveData();
             }
 
+            normalizeExistingProductCategories();
             phoneSales   = JSON.parse(localStorage.getItem('realphone_phone_sales')) || phoneSales;
             
             checkSalesResets();
@@ -382,7 +385,7 @@ db.enablePersistence().catch(function(err) {
         if (!productListEl) return;
 
         const filtered = products.filter(p => {
-            const matchCat   = activeCategory === 'todas' || p.category === activeCategory;
+            const matchCat   = activeCategory === 'TOD' || p.category === activeCategory;
             const searchLower = filterText.toLowerCase();
             const matchSearch = !filterText ||
                 p.name.toLowerCase().includes(searchLower) ||
@@ -648,8 +651,8 @@ db.enablePersistence().catch(function(err) {
             const isActive = activeCategory === cat.id ? 'active' : '';
             html += `<button class="category-tab ${isActive}" data-cat="${cat.id}">${cat.icon} ${cat.name}</button>`;
             
-            // Llenar select excluyendo "todas"
-            if (cat.id !== 'todas' && selectEl) {
+            // Llenar select excluyendo "Todos"
+            if (cat.id !== 'TOD' && selectEl) {
                 selectHtml += `<option value="${cat.id}">${cat.icon} ${cat.name}</option>`;
             }
         });
@@ -1195,6 +1198,19 @@ db.enablePersistence().catch(function(err) {
         return normalizedRaw.replace(/\s+/g, '_') || 'sin_categoria';
     }
 
+    function normalizeExistingProductCategories() {
+        if (!Array.isArray(products) || products.length === 0) return;
+        let changed = false;
+        products.forEach(product => {
+            const normalizedCategory = matchImportCategory(product.category || product.name || 'sin_categoria');
+            if (product.category !== normalizedCategory) {
+                product.category = normalizedCategory;
+                changed = true;
+            }
+        });
+        if (changed) saveData();
+    }
+
     function mapImportData(jsonData) {
         // Mapeo estricto por columnas
         // A: SKU (0)
@@ -1211,7 +1227,7 @@ db.enablePersistence().catch(function(err) {
             const stock = parseInt(row[2]) || 0;
             const price = parseFloat(row[3]) || 0;
             const rawCat = String(row[4] || '').trim();
-            const cat    = matchImportCategory(rawCat);
+            const cat    = matchImportCategory(rawCat || name);
             const cost  = parseFloat(row[5]) || 0;
 
             if (!sku && !name) return null; // Fila vacía
