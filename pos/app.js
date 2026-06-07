@@ -1186,12 +1186,13 @@ db.enablePersistence().catch(function(err) {
     }
 
     function renderImportPreview(data) {
-        const previewEl = document.getElementById('importPreviewConfig');
-        if (!previewEl) return;
-        previewEl.style.display = 'block';
+        const previewWrapper = document.getElementById('importPreviewConfig');
+        const previewTable = document.getElementById('previewTableConfig');
+        if (!previewWrapper || !previewTable) return;
+        previewWrapper.style.display = 'block';
 
         let html = `
-            <table class="ticket-table" style="font-size:0.8rem;">
+            <table class="ticket-table" style="font-size:0.8rem; width:100%; border-collapse:collapse;">
                 <thead>
                     <tr>
                         <th>Acción</th>
@@ -1206,17 +1207,13 @@ db.enablePersistence().catch(function(err) {
                 <tbody>
         `;
 
-        const limit = Math.min(data.length, 100); // Mostrar max 100
+        const limit = Math.min(data.length, 100);
         for (let i = 0; i < limit; i++) {
             const item = data[i];
             const existingIdx = products.findIndex(p => p.sku.toLowerCase() === item.sku.toLowerCase());
-
-            let badge = '';
-            if (existingIdx >= 0) {
-                badge = '<span class="status-badge warning" style="padding:2px 4px;font-size:0.7rem;">Actualizar</span>';
-            } else {
-                badge = '<span class="status-badge success" style="padding:2px 4px;font-size:0.7rem;">Nuevo</span>';
-            }
+            const badge = existingIdx >= 0
+                ? '<span class="status-badge warning" style="padding:2px 4px;font-size:0.7rem;">Actualizar</span>'
+                : '<span class="status-badge success" style="padding:2px 4px;font-size:0.7rem;">Nuevo</span>';
 
             html += `
                 <tr>
@@ -1236,7 +1233,7 @@ db.enablePersistence().catch(function(err) {
         }
 
         html += `</tbody></table>`;
-        previewEl.innerHTML = html;
+        previewTable.innerHTML = html;
     }
 
     // Confirmar importación
