@@ -1,0 +1,13 @@
+{
+  "name": "realphone-electron",
+  "version": "0.1.0",
+  "description": "Electron wrapper for RealPhone POS (silent printing)",
+  "main": "electron-main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron ."
+  },
+  "devDependencies": {
+    "electron": "^25.0.0"
+  }
+}

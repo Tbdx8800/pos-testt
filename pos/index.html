@@ -51,6 +51,12 @@
             <button class="btn-header" id="btnMetas" title="Ver Metas">
                 <i class="fas fa-bullseye"></i> <span>Metas</span>
             </button>
+            <button class="btn-header" id="btnHistory" title="Historial de Tickets">
+                <i class="fas fa-history"></i> <span>Historial</span>
+            </button>
+            <button class="btn-header" id="btnCortes" title="Cortes de Caja">
+                <i class="fas fa-cash-register"></i> <span>Cortes</span>
+            </button>
             <button class="btn-header" id="btnConfig" title="Configuración">
                 <i class="fas fa-cog"></i> <span>Configuración</span>
             </button>
@@ -394,6 +400,8 @@
             <div class="shortcut-item"><span class="shortcut-key">F10</span> Buscar producto</div>
             <div class="shortcut-item"><span class="shortcut-key">F12</span> Cobrar venta</div>
             <div class="shortcut-item"><span class="shortcut-key">DEL</span> Borrar último artículo</div>
+            <div class="shortcut-item"><span class="shortcut-key">X</span> Corte parcial</div>
+            <div class="shortcut-item"><span class="shortcut-key">Z</span> Corte de cierre</div>
             <div class="shortcut-item"><span class="shortcut-key">Ctrl+P</span> Artículo Común</div>
             <div class="shortcut-item"><span class="shortcut-key">ESC</span> Cerrar modal/panel</div>
             <div class="shortcut-item"><span class="shortcut-key">?</span> Mostrar/ocultar esta guía</div>
@@ -506,6 +514,43 @@
 
 
 
+
+    <!-- MODAL DE HISTORIAL DE TICKETS -->
+    <div id="historyModal" class="modal-overlay" style="display:none; z-index:3000;">
+        <div class="modal" style="max-width:720px; width:95%; padding:1.5rem;">
+            <div class="modal-header">
+                <h2><i class="fas fa-history"></i> Historial de Tickets</h2>
+                <button class="modal-close" id="btnCloseHistory">&times;</button>
+            </div>
+            <div style="display:flex; gap:0.75rem; flex-wrap:wrap; margin-bottom:1rem;">
+                <button class="history-tab active" data-filter="all">Todos</button>
+                <button class="history-tab" data-filter="ventas">Ventas</button>
+                <button class="history-tab" data-filter="pendientes">Pendientes</button>
+            </div>
+            <div style="display:flex; gap:0.75rem; align-items:center; margin-bottom:1rem; flex-wrap:wrap;">
+                <input id="historySearch" type="text" placeholder="Buscar por número, cliente o total..." style="flex:1; padding:0.85rem; border-radius:12px; border:1px solid var(--border); background:var(--bg-input); color:var(--text);">
+                <button class="btn btn-outline" id="btnRefreshHistory">Actualizar</button>
+            </div>
+            <div id="historySummary" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:0.75rem; margin-bottom:1rem;"></div>
+            <div id="historyList" style="max-height:380px; overflow-y:auto;"></div>
+        </div>
+    </div>
+
+    <!-- MODAL DE CORTES DE CAJA -->
+    <div id="cutModal" class="modal-overlay" style="display:none; z-index:3000;">
+        <div class="modal" style="max-width:540px; width:95%; padding:1.5rem;">
+            <div class="modal-header">
+                <h2><i class="fas fa-cash-register"></i> Cortes de Caja</h2>
+                <button class="modal-close" id="btnCloseCut">&times;</button>
+            </div>
+            <p style="color:var(--text-secondary); margin-bottom:1rem;">Presiona X para corte parcial o Z para corte de cierre. El cierre no borra datos, solo genera un corte final de operación.</p>
+            <div id="cutSummary" style="background:var(--bg-input); border:1px solid var(--border); border-radius:14px; padding:1rem; margin-bottom:1rem; color:var(--text);"></div>
+            <div style="display:flex; gap:0.75rem; flex-wrap:wrap;">
+                <button class="btn accent" id="btnPartialCut">Generar Corte Parcial</button>
+                <button class="btn btn-danger" id="btnCloseCutAction">Generar Corte de Cierre</button>
+            </div>
+        </div>
+    </div>
 
     <!-- MODAL BIENVENIDA / TUTORIAL -->
     <div id="welcomeModal" class="modal-overlay" style="display:none; z-index:3000;">

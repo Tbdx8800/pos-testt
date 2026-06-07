@@ -50,6 +50,9 @@ db.enablePersistence().catch(function(err) {
     let users         = [];
     let products      = [];
     let salesHistory  = [];
+    let pendingTickets = [];
+    let currentPendingTicketId = null;
+    let cutHistory    = [];
     let currentUser   = null;
     let currentBranch = 'principal';
     let ticketItems   = [];
@@ -121,6 +124,8 @@ db.enablePersistence().catch(function(err) {
 
             products     = JSON.parse(localStorage.getItem('realphone_products')) || JSON.parse(JSON.stringify(defaultProducts));
             salesHistory = JSON.parse(localStorage.getItem('realphone_sales'))    || [];
+            pendingTickets = JSON.parse(localStorage.getItem('realphone_pending_tickets')) || [];
+            cutHistory    = JSON.parse(localStorage.getItem('realphone_cut_history')) || [];
             ticketCounter= parseInt(localStorage.getItem('realphone_ticket_counter')) || 1;
             categories   = JSON.parse(localStorage.getItem('realphone_categories')) || JSON.parse(JSON.stringify(defaultCategories));
             
@@ -145,6 +150,37 @@ db.enablePersistence().catch(function(err) {
             }
 
             normalizeExistingProductCategories();
+
+            // Restaurar sesión compartida (si el POS o Gestor dejó el usuario en localStorage)
+            try {
+                const posUser = localStorage.getItem('realphone_currentUser1');
+                if (posUser) {
+                    const parsed = JSON.parse(posUser);
+                    currentUser = users.find(u => u.id === parsed.id) || parsed;
+                    currentBranch = localStorage.getItem('realphone_current_store') || currentBranch;
+                    // Actualizar UI si ya están disponibles los elementos del DOM
+                    if (currentUser) {
+                        try {
+                            const cuidisp = document.getElementById('currentUserDisplay');
+                            if (cuidisp) cuidisp.innerHTML = '<i class="fas fa-user"></i> Le atiende: ' + (currentUser.fullName || currentUser.username);
+                            const lOverlay = document.getElementById('loginOverlay');
+                            const pContainer = document.getElementById('posContainer');
+                            if (lOverlay) lOverlay.classList.add('hidden');
+                            if (pContainer) { pContainer.style.display = 'flex'; pContainer.style.paddingTop = '52px'; }
+                            const posHdr = document.getElementById('posHeader');
+                            if (posHdr) {
+                                posHdr.style.display = 'flex';
+                                const uEl = document.getElementById('posHeaderUser');
+                                if (uEl) uEl.textContent = '| ' + (currentUser.fullName || currentUser.username) + ' [' + currentUser.role + ']';
+                            }
+                            applyPermissionsUI();
+                            showToast('Sesión restaurada: ' + (currentUser.fullName || currentUser.username), 'info');
+                        } catch (uiErr) { console.warn('No se pudo actualizar UI de sesión:', uiErr); }
+                    }
+                }
+            } catch (e) {
+                console.warn('Error restaurando sesión desde localStorage:', e);
+            }
             phoneSales   = JSON.parse(localStorage.getItem('realphone_phone_sales')) || phoneSales;
             
             checkSalesResets();
@@ -179,6 +215,8 @@ db.enablePersistence().catch(function(err) {
             localStorage.setItem('realphone_users',    JSON.stringify(users));
             localStorage.setItem('realphone_products', JSON.stringify(products));
             localStorage.setItem('realphone_sales',    JSON.stringify(salesHistory));
+            localStorage.setItem('realphone_pending_tickets', JSON.stringify(pendingTickets));
+            localStorage.setItem('realphone_cut_history', JSON.stringify(cutHistory));
             localStorage.setItem('realphone_ticket_counter', ticketCounter);
             localStorage.setItem('realphone_categories', JSON.stringify(categories));
             localStorage.setItem('realphone_phone_sales', JSON.stringify(phoneSales));
@@ -194,6 +232,35 @@ db.enablePersistence().catch(function(err) {
 
     function generateId() {
         return 'p' + Date.now() + Math.random().toString(36).slice(2, 6);
+    }
+
+    function normalizeCategory(category) {
+        if (!category) return '';
+        const value = String(category).trim().toUpperCase();
+        if (['TEL', 'TELEFONIA', 'TELEFONÍA', 'PHONE', 'PHONES'].includes(value)) return 'TEL';
+        if (['DIS', 'DISPOSITIVO', 'DISPOSITIVOS', 'DEVICE', 'DEVICES', 'EQUIPO', 'EQUIPOS'].includes(value)) return 'DIS';
+        if (['FUN', 'FUNDA', 'FUNDAS'].includes(value)) return 'FUN';
+        if (['MIC', 'MICA', 'MICAS'].includes(value)) return 'MIC';
+        if (['TOD', 'TODOS', 'TODAS', 'ALL'].includes(value)) return 'TOD';
+        return value;
+    }
+
+    function isDeviceCategory(category) {
+        const cat = normalizeCategory(category);
+        return cat === 'DIS';
+    }
+
+    function isPhoneCategory(category) {
+        const cat = normalizeCategory(category);
+        return cat === 'TEL';
+    }
+
+    function hasDeviceSeal(items) {
+        return items.some(item => isDeviceCategory(item.category));
+    }
+
+    function hasPhoneSeal(items) {
+        return items.some(item => isPhoneCategory(item.category));
     }
 
     // ==================== TOAST NOTIFICATIONS ====================
@@ -215,6 +282,155 @@ db.enablePersistence().catch(function(err) {
             toast.classList.add('toast-out');
             setTimeout(() => toast.remove(), 300);
         }, 3500);
+    }
+
+    function getTodaySummary() {
+        const today = new Date().toISOString().slice(0, 10);
+        const salesToday = salesHistory.filter(sale => sale.date === today);
+        const total = salesToday.reduce((sum, sale) => sum + sale.total, 0);
+        const tickets = salesToday.length;
+        const totalDevices = salesToday.reduce((sum, sale) => sum + sale.items.filter(item => isDeviceCategory(item.category)).reduce((st, item) => st + item.qty, 0), 0);
+        const totalPhones = salesToday.reduce((sum, sale) => sum + sale.items.filter(item => isPhoneCategory(item.category)).reduce((st, item) => st + item.qty, 0), 0);
+        return { today, total, tickets, totalDevices, totalPhones, pending: pendingTickets.length };
+    }
+
+    function renderCutSummary(type = 'parcial') {
+        const summaryEl = document.getElementById('cutSummary');
+        if (!summaryEl) return;
+        const { today, total, tickets, totalDevices, totalPhones, pending } = getTodaySummary();
+        const closingNote = type === 'cierre'
+            ? 'Este es el corte de cierre definitivo del turno / día. Conserva el reporte para conciliación.'
+            : 'Este es un corte parcial. Sigue trabajando con el siguiente ticket.';
+
+        summaryEl.innerHTML = `
+            <div style="display:grid; gap:0.65rem;">
+                <div><strong>Fecha:</strong> ${today}</div>
+                <div><strong>Ventas registradas hoy:</strong> ${tickets} tickets</div>
+                <div><strong>Total del día:</strong> ${formatMoney(total)}</div>
+                <div><strong>Equipos dispositivos:</strong> ${totalDevices}</div>
+                <div><strong>Telefonía:</strong> ${totalPhones}</div>
+                <div><strong>Tickets pendientes:</strong> ${pending}</div>
+                <div style="margin-top:0.4rem; color:var(--text-secondary); font-size:0.95rem;">${closingNote}</div>
+            </div>
+        `;
+        summaryEl.dataset.cutType = type;
+    }
+
+    function registerCut(type) {
+        const { today, total, tickets, totalDevices, totalPhones, pending } = getTodaySummary();
+        const cut = {
+            id: 'CUT-' + Date.now(),
+            type,
+            date: new Date().toISOString(),
+            summary: { total, tickets, totalDevices, totalPhones, pending },
+            note: type === 'cierre' ? 'Corte de cierre' : 'Corte parcial'
+        };
+        cutHistory.unshift(cut);
+        saveData();
+        showToast(type === 'cierre' ? '✅ Corte de cierre realizado' : '✅ Corte parcial registrado', 'success');
+    }
+
+    function openCutModal(type = 'parcial') {
+        const modal = document.getElementById('cutModal');
+        if (!modal) return;
+        renderCutSummary(type);
+        modal.style.display = 'flex';
+        modal.dataset.openType = type;
+    }
+
+    function closeCutModal() {
+        const modal = document.getElementById('cutModal');
+        if (modal) modal.style.display = 'none';
+    }
+
+    function openHistoryModal() {
+        const modal = document.getElementById('historyModal');
+        if (!modal) return;
+        modal.style.display = 'flex';
+        document.getElementById('historySearch').value = '';
+        document.querySelectorAll('.history-tab').forEach(tab => tab.classList.remove('active'));
+        const allTab = document.querySelector('.history-tab[data-filter="all"]');
+        if (allTab) allTab.classList.add('active');
+        renderTicketHistory('all');
+    }
+
+    function closeHistoryModal() {
+        const modal = document.getElementById('historyModal');
+        if (modal) modal.style.display = 'none';
+    }
+
+    function formatTicketRow(ticket, isPending = false) {
+        const state = isPending ? 'Pendiente' : 'Venta';
+        const actions = isPending ? `<button class="action-btn btn-outline" data-action="reopen" data-id="${ticket.id}">Reabrir</button>` : '';
+        return `
+            <div class="ticket-history-card" style="border:1px solid var(--border); border-radius:14px; padding:1rem; margin-bottom:0.75rem; background:var(--bg-app);">
+                <div style="display:flex; justify-content:space-between; gap:1rem; flex-wrap:wrap;">
+                    <div style="font-size:0.95rem; color:var(--text-secondary);">${ticket.date || ticket.savedAt || ticket.timestamp || ''} ${ticket.time || ''}</div>
+                    <div style="font-weight:700; color:${isPending ? '#b45309' : '#059669'};">${state}</div>
+                </div>
+                <div style="display:grid; grid-template-columns:1fr auto; gap:0.5rem; margin-top:0.5rem;">
+                    <div>
+                        <div><strong>Ticket:</strong> ${ticket.ticketNumber || ticket.id}</div>
+                        <div><strong>Total:</strong> ${formatMoney(ticket.total || 0)}</div>
+                        <div><strong>Atendió:</strong> ${ticket.cashier || ticket.cashierName || ticket.cashierName || ticket.atendio || 'N/A'}</div>
+                        <div><strong>Productos:</strong> ${ticket.items ? ticket.items.length : 0}</div>
+                    </div>
+                    <div style="display:flex; align-items:flex-end; justify-content:flex-end; gap:0.5rem;">
+                        ${actions}
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    function renderTicketHistory(filter = 'all') {
+        const listEl = document.getElementById('historyList');
+        const searchValue = (document.getElementById('historySearch')?.value || '').toLowerCase();
+        if (!listEl) return;
+
+        const pendingHtml = pendingTickets
+            .filter(ticket => filter === 'all' || filter === 'pendientes')
+            .filter(ticket => (ticket.ticketNumber.toString().includes(searchValue)) || (ticket.cashier || '').toLowerCase().includes(searchValue) || formatMoney(ticket.total).toLowerCase().includes(searchValue))
+            .map(ticket => formatTicketRow(ticket, true)).join('');
+
+        const salesHtml = salesHistory
+            .filter(ticket => filter === 'all' || filter === 'ventas')
+            .filter(ticket => (ticket.ticketNumber && ticket.ticketNumber.toString().includes(searchValue)) || (ticket.cashier || '').toLowerCase().includes(searchValue) || formatMoney(ticket.total).toLowerCase().includes(searchValue))
+            .map(ticket => formatTicketRow(ticket, false)).join('');
+
+        if (filter === 'pendientes' && pendingHtml.trim().length === 0) {
+            listEl.innerHTML = '<div style="text-align:center; color:var(--text-secondary); padding:1rem;">No hay tickets pendientes.</div>';
+            return;
+        }
+
+        if (filter === 'ventas' && salesHtml.trim().length === 0) {
+            listEl.innerHTML = '<div style="text-align:center; color:var(--text-secondary); padding:1rem;">No hay ventas registradas.</div>';
+            return;
+        }
+
+        listEl.innerHTML = `${pendingHtml}${salesHtml}` || '<div style="text-align:center; color:var(--text-secondary); padding:1rem;">No se encontraron tickets con esos términos.</div>';
+    }
+
+    function openPendingTicket(ticketId) {
+        const ticket = pendingTickets.find(t => t.id === ticketId);
+        if (!ticket) {
+            showToast('No se encontró el ticket pendiente.', 'error');
+            return;
+        }
+        ticketItems = ticket.items.map(item => ({ ...item }));
+        currentPendingTicketId = ticket.id;
+        ticketNumberEl.textContent = ticket.ticketNumber;
+        updateTicketDisplay();
+        closeHistoryModal();
+        showToast('Ticket pendiente reabierto: #' + ticket.ticketNumber, 'success');
+    }
+
+    function finalizePendingIfNeeded(ticketNumber) {
+        if (!currentPendingTicketId) return ticketNumber;
+        const index = pendingTickets.findIndex(t => t.id === currentPendingTicketId);
+        if (index >= 0) pendingTickets.splice(index, 1);
+        currentPendingTicketId = null;
+        return ticketNumber;
     }
 
     // ==================== REFERENCIAS AL DOM ====================
@@ -428,13 +644,14 @@ db.enablePersistence().catch(function(err) {
             existing.qty += 1;
         } else {
             ticketItems.push({
-                id:    product.id,
-                sku:   product.sku,
-                name:  product.name,
-                price: product.price,
-                cost:  product.cost,
-                stock: product.stock,
-                qty:   1
+                id:       product.id,
+                sku:      product.sku,
+                name:     product.name,
+                category: normalizeCategory(product.category),
+                price:    product.price,
+                cost:     product.cost,
+                stock:    product.stock,
+                qty:      1
             });
         }
         updateTicketDisplay();
@@ -492,11 +709,7 @@ db.enablePersistence().catch(function(err) {
             return;
         }
 
-        if (!confirm(
-            '¿Confirmar venta por ' + formatMoney(total) + '?\n' +
-            'Pago: ' + formatMoney(pago) + '\n' +
-            'Cambio: ' + formatMoney(pago - total)
-        )) return;
+        // No preguntar — registrar venta e imprimir inmediatamente
 
         // Descontar stock
         ticketItems.forEach(item => {
@@ -504,10 +717,18 @@ db.enablePersistence().catch(function(err) {
             if (prod) prod.stock = Math.max(0, prod.stock - item.qty);
         });
 
+        const wasReopened = !!currentPendingTicketId;
+        let actualTicketNumber = ticketCounter;
+        if (currentPendingTicketId) {
+            const pending = pendingTickets.find(t => t.id === currentPendingTicketId);
+            if (pending) actualTicketNumber = pending.ticketNumber;
+        }
+
         // Registrar venta
         const saleId = 'SALE-' + Date.now();
         const sale = {
             id:      saleId,
+            ticketNumber: actualTicketNumber,
             date:    new Date().toISOString().slice(0, 10),
             time:    new Date().toLocaleTimeString(),
             branch:  currentBranch,
@@ -523,11 +744,13 @@ db.enablePersistence().catch(function(err) {
         // Metas: Verificar si se vendieron teléfonos
         let phonesSold = 0;
         ticketItems.forEach(item => {
-            const prod = products.find(p => p.id === item.id);
-            if (prod && prod.category === 'TEL') {
+            if (isPhoneCategory(item.category)) {
                 phonesSold += item.qty;
-            } else if (item.category === 'TEL') {
-                phonesSold += item.qty; // Respaldo por si se borró el producto
+            } else {
+                const prod = products.find(p => p.id === item.id);
+                if (prod && isPhoneCategory(prod.category)) {
+                    phonesSold += item.qty;
+                }
             }
         });
 
@@ -535,22 +758,28 @@ db.enablePersistence().catch(function(err) {
             const uid = currentUser ? currentUser.username : 'desconocido';
             phoneSales.weekly.total += phonesSold;
             phoneSales.weekly.users[uid] = (phoneSales.weekly.users[uid] || 0) + phonesSold;
-            
             phoneSales.monthly.total += phonesSold;
             phoneSales.monthly.users[uid] = (phoneSales.monthly.users[uid] || 0) + phonesSold;
         }
 
-        saveData();
+        if (wasReopened) {
+            finalizePendingIfNeeded();
+        }
 
-        showToast('✅ Venta registrada — Ticket #' + ticketCounter + ' — Total: ' + formatMoney(total), 'success');
+        saveData();
+        updateMetasUI();
+
+        showToast('✅ Venta registrada — Ticket #' + actualTicketNumber + ' — Total: ' + formatMoney(total), 'success');
 
         // AUTO-PRINT ticket de venta
-        autoPrintSaleTicket(sale, ticketCounter);
+        autoPrintSaleTicket(sale, actualTicketNumber);
 
         // Nuevo ticket
         ticketItems = [];
         paymentInput.value = '';
-        ticketCounter++;
+        if (!wasReopened) {
+            ticketCounter++;
+        }
         ticketNumberEl.textContent = ticketCounter;
         updateTicketDisplay();
         renderProducts(searchInput.value);
@@ -558,14 +787,6 @@ db.enablePersistence().catch(function(err) {
 
     // Auto-print function
     function autoPrintSaleTicket(sale, ticketNum) {
-        const storeAddresses = {
-            'principal':  'Av. Principal #100, Centro',
-            'sucursal1':  'Calle 5 de Mayo #25, Col. Centro',
-            'sucursal2':  'Blvd. Independencia #430',
-            'sucursal3':  'Av. Juárez #88, Plaza Mayor',
-            'sucursal4':  'Calle Morelos #15, Col. Juárez',
-            'sucursal5':  'Carretera Nacional Km. 12'
-        };
         const storeNames = {
             'principal': 'RealPhone Principal',
             'sucursal1': 'RealPhone Sucursal 1',
@@ -575,33 +796,146 @@ db.enablePersistence().catch(function(err) {
             'sucursal5': 'RealPhone Sucursal 5'
         };
         const storeName = storeNames[sale.branch] || sale.branch;
-        const storeAddr = storeAddresses[sale.branch] || '';
-        const itemsHtml = sale.items.map(i =>
-            `<div class="flex-row"><span>${i.qty}x ${i.name}</span><span>$${(i.price * i.qty).toFixed(2)}</span></div>`
-        ).join('');
-        const receiptHTML = `<html><head><title>Ticket #${ticketNum}</title>
-        <style>
-            @page{margin:0} body{font-family:'Courier New',monospace;width:300px;margin:0 auto;color:#000;background:#fff;font-size:14px;padding:10px;box-sizing:border-box;}
-            .header{text-align:center;margin-bottom:10px;} .header h1{font-size:18px;margin:0;font-weight:bold;} .header p{margin:2px 0;font-size:12px;}
-            .divider{border-bottom:1px dashed #000;margin:8px 0;} .flex-row{display:flex;justify-content:space-between;margin-bottom:4px;font-size:13px;}
-            .total{font-weight:bold;font-size:16px;margin-top:8px;border-top:1px dashed #000;padding-top:5px;}
-            .footer{text-align:center;margin-top:16px;font-size:11px;}
-        </style></head>
-        <body onload="setTimeout(function(){window.print();window.close();},300);">
-            <div class="header"><h1>${storeName}</h1><p>by Telcel</p><p style="font-size:10px;">${storeAddr}</p><p>Ticket de Venta #${ticketNum}</p><p>Fecha: ${sale.date} ${sale.time}</p></div>
-            <div class="divider"></div>
-            <div class="flex-row"><span>Le atendió:</span><span>${sale.cashier}</span></div>
-            <div class="flex-row"><span>Sucursal:</span><span>${storeName}</span></div>
-            <div class="divider"></div>
-            ${itemsHtml}
-            <div class="divider"></div>
-            <div class="flex-row total"><span>TOTAL:</span><span>$${sale.total.toFixed(2)}</span></div>
-            <div class="flex-row"><span>Pago con:</span><span>$${sale.payment.toFixed(2)}</span></div>
-            <div class="flex-row"><span>Cambio:</span><span>$${sale.change.toFixed(2)}</span></div>
-            <div class="footer"><p>*** Gracias por su preferencia ***</p><p>Conserve su ticket</p></div>
-        </body></html>`;
-        const w = window.open('', '_blank', 'width=350,height=600');
-        if (w) { w.document.write(receiptHTML); w.document.close(); }
+        
+        // Generate items HTML - simpler and cleaner
+        const itemsLines = sale.items.map(item => {
+            const qty = item.qty;
+            const name = item.name;
+            const price = (item.price * qty).toFixed(2);
+            return `${qty}x ${name}`.padEnd(40) + '$' + price;
+        }).join('<br>');
+        
+        // Simple, clean receipt HTML
+        const receiptHTML = `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Ticket #${ticketNum}</title>
+    <style>
+        * { margin: 0; padding: 0; }
+        body {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.6;
+            color: black;
+            background: white;
+            width: 80mm;
+            margin: 0 auto;
+            padding: 10px;
+        }
+        .header {
+            text-align: center;
+            border-bottom: 2px solid #000;
+            padding-bottom: 8px;
+            margin-bottom: 8px;
+        }
+        .header h1 {
+            font-size: 14px;
+            font-weight: bold;
+            margin: 4px 0;
+        }
+        .header p {
+            font-size: 11px;
+            margin: 2px 0;
+        }
+        .section {
+            margin: 8px 0;
+            padding: 8px 0;
+            border-bottom: 1px dashed #000;
+        }
+        .row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            margin: 3px 0;
+        }
+        .items {
+            font-family: monospace;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            margin: 8px 0;
+            padding: 8px 0;
+            border-top: 1px dashed #000;
+            border-bottom: 1px dashed #000;
+        }
+        .total-section {
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 2px solid #000;
+        }
+        .total {
+            font-weight: bold;
+            font-size: 14px;
+            margin-bottom: 4px;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 12px;
+            font-size: 11px;
+            padding-top: 8px;
+            border-top: 1px dashed #000;
+        }
+        .seal {
+            border: 1px solid #000;
+            padding: 6px;
+            margin: 8px 0;
+            font-size: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>${storeName}</h1>
+        <p>by Telcel</p>
+        <p>Ticket #${ticketNum}</p>
+        <p>${sale.date} ${sale.time}</p>
+    </div>
+    
+    <div class="section">
+        <div class="row">
+            <span>Atendido por:</span>
+            <span><strong>${sale.cashier}</strong></span>
+        </div>
+    </div>
+    
+    <div class="items">
+${itemsLines}
+    </div>
+    
+    <div class="total-section">
+        <div class="total">
+            <span>TOTAL:</span>
+            <span style="float: right;">$${sale.total.toFixed(2)}</span>
+        </div>
+        <div style="clear: both;"></div>
+        <div class="row">
+            <span>Pago:</span>
+            <span>$${sale.payment.toFixed(2)}</span>
+        </div>
+        <div class="row">
+            <span>Cambio:</span>
+            <span>$${sale.change.toFixed(2)}</span>
+        </div>
+    </div>
+    
+    <div class="footer">
+        <p>*** GRACIAS POR SU COMPRA ***</p>
+        <p>Conserve su ticket</p>
+    </div>
+</body>
+</html>`;
+
+        // Open preview window instead of silent print
+        const w = window.open('', '_blank', 'width=400,height=800');
+        if (w) {
+            w.document.write(receiptHTML);
+            w.document.close();
+            w.focus();
+            // Auto-print after a short delay
+            setTimeout(() => {
+                w.print();
+            }, 300);
+        }
     }
 
     // ==================== BOTONES DE ACCIÓN ====================
@@ -623,8 +957,62 @@ db.enablePersistence().catch(function(err) {
 
     document.getElementById('btnPendiente').addEventListener('click', function () {
         if (ticketItems.length === 0) { showToast('No hay productos para dejar pendiente', 'warning'); return; }
-        showToast('📋 Ticket #' + ticketCounter + ' guardado como pendiente', 'info');
+
+        const total = ticketItems.reduce((s, i) => s + (i.price * i.qty), 0);
+        const pendingTicket = {
+            id: 'PEND-' + Date.now(),
+            ticketNumber: ticketCounter,
+            savedAt: new Date().toISOString().slice(0, 16).replace('T', ' '),
+            date: new Date().toISOString().slice(0, 10),
+            time: new Date().toLocaleTimeString(),
+            branch: currentBranch,
+            cashier: currentUser ? (currentUser.fullName || currentUser.username) : 'N/A',
+            items: ticketItems.map(i => ({ ...i })),
+            total,
+            status: 'Pendiente'
+        };
+
+        pendingTickets.unshift(pendingTicket);
+        saveData();
+
+        showToast('📋 Ticket #' + ticketCounter + ' guardado como pendiente', 'success');
+
+        ticketItems = [];
+        paymentInput.value = '';
+        ticketCounter++;
+        ticketNumberEl.textContent = ticketCounter;
+        updateTicketDisplay();
     });
+
+    // Primary binding for history button
+    document.getElementById('btnHistory')?.addEventListener('click', openHistoryModal);
+    // Fallback: delegated click in case the button is re-rendered or not available at bind time
+    document.addEventListener('click', function (ev) {
+        const btn = ev.target.closest && ev.target.closest('#btnHistory');
+        if (btn) {
+            openHistoryModal();
+        }
+    });
+    document.getElementById('btnCortes')?.addEventListener('click', () => openCutModal('parcial'));
+    document.getElementById('btnCloseHistory')?.addEventListener('click', closeHistoryModal);
+    document.getElementById('btnRefreshHistory')?.addEventListener('click', () => renderTicketHistory(document.querySelector('.history-tab.active')?.dataset.filter || 'all'));
+    document.getElementById('historySearch')?.addEventListener('input', () => renderTicketHistory(document.querySelector('.history-tab.active')?.dataset.filter || 'all'));
+    document.querySelectorAll('.history-tab').forEach(tab => {
+        tab.addEventListener('click', function () {
+            document.querySelectorAll('.history-tab').forEach(t => t.classList.remove('active'));
+            this.classList.add('active');
+            renderTicketHistory(this.dataset.filter || 'all');
+        });
+    });
+    document.getElementById('historyList')?.addEventListener('click', function (event) {
+        const button = event.target.closest('button[data-action="reopen"]');
+        if (button) {
+            openPendingTicket(button.dataset.id);
+        }
+    });
+    document.getElementById('btnCloseCut')?.addEventListener('click', closeCutModal);
+    document.getElementById('btnPartialCut')?.addEventListener('click', function () { registerCut('parcial'); closeCutModal(); });
+    document.getElementById('btnCloseCutAction')?.addEventListener('click', function () { registerCut('cierre'); closeCutModal(); });
 
     // ==================== BÚSQUEDA ====================
     document.getElementById('btnSearch').addEventListener('click', function () {
@@ -1474,9 +1862,9 @@ db.enablePersistence().catch(function(err) {
             if (currentUser) {
                 localStorage.setItem('realphone_currentUser1', JSON.stringify(currentUser));
             }
-            // Open Gestor in new tab or same window
+            // Open Gestor in the same window
             const gestorPath = '../gestor-tickets/index.html';
-            window.open(gestorPath, '_blank');
+            window.location.href = gestorPath;
         });
     }
 
@@ -1619,16 +2007,26 @@ db.enablePersistence().catch(function(err) {
         shortcutPanel.classList.toggle('visible', shortcutPanelVisible);
     }
 
+    function isTyping(e) {
+        const target = e.target;
+        if (!target) return false;
+        const tagName = target.tagName ? target.tagName.toLowerCase() : '';
+        return tagName === 'input' || tagName === 'textarea' || target.isContentEditable;
+    }
+
     document.addEventListener('keydown', function (e) {
+        const rawKey = e.key || '';
+        const key = rawKey.length === 1 ? rawKey.toUpperCase() : rawKey;
+
         // Permitir '?' incluso sin sesión para ver atajos
-        if (e.key === '?' && !isTyping(e)) {
+        if (key === '?' && !isTyping(e)) {
             e.preventDefault();
             toggleShortcutPanel();
             return;
         }
 
         // Cerrar modal/panel con Escape
-        if (e.key === 'Escape') {
+        if (key === 'Escape') {
             const configModal = document.getElementById('configModal');
             if (configModal && configModal.style.display !== 'none') {
                 configModal.style.display = 'none';
@@ -1647,11 +2045,11 @@ db.enablePersistence().catch(function(err) {
 
         // No interceptar atajos si el usuario está escribiendo en un input/textarea
         // EXCEPTO para las teclas de función
-        const isFKey = /^F\d{1,2}$/.test(e.key);
+        const isFKey = /^F\d{1,2}$/.test(key);
 
         if (!isFKey && isTyping(e)) return;
 
-        switch (e.key) {
+        switch (key) {
             case 'F3':
                 e.preventDefault();
                 if (!isAdminOrTester()) { showToast('F3: Solo admin/tester puede registrar salidas', 'warning'); break; }
@@ -1708,6 +2106,28 @@ db.enablePersistence().catch(function(err) {
                 e.preventDefault();
                 document.getElementById('btnCobrar').click();
                 break;
+                case 'F4':
+                    e.preventDefault();
+                    if (e.shiftKey) {
+                        // Shift+F4 -> corte de cierre
+                        openCutModal('cierre');
+                    } else {
+                        // F4 -> corte parcial
+                        openCutModal('parcial');
+                    }
+                    break;
+            case 'X':
+                if (!isTyping(e)) {
+                    e.preventDefault();
+                    openCutModal('parcial');
+                }
+                break;
+            case 'Z':
+                if (!isTyping(e)) {
+                    e.preventDefault();
+                    openCutModal('cierre');
+                }
+                break;
             case 'Delete':
                 if (!isTyping(e)) {
                     e.preventDefault();
@@ -1717,7 +2137,7 @@ db.enablePersistence().catch(function(err) {
         }
 
         // Ctrl+P: Artículo Común
-        if (e.ctrlKey && e.key.toLowerCase() === 'p') {
+        if (e.ctrlKey && key === 'P') {
             e.preventDefault();
             handleCommonProduct();
         }

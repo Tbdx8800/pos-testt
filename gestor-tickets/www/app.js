@@ -59,6 +59,8 @@ function checkAllDataLoaded() {
 
 onSnapshot(collection(db, "users"), (snapshot) => {
     users = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    localStorage.setItem('shared_firebase_users', JSON.stringify(users));
+    
     // Si no hay usuarios en la nube, creamos los por defecto
     if (users.length === 0) {
         const defaultUsers = [
@@ -67,19 +69,56 @@ onSnapshot(collection(db, "users"), (snapshot) => {
         defaultUsers.forEach(u => setDoc(doc(db, "users", u.id), u));
     }
 
-    // Si hay alguien logueado, actualizar su data (por si le cambiaron la clave)
-    if (currentUser1) {
-        const updated1 = users.find(u => u.id === currentUser1.id);
-        if (updated1) currentUser1 = updated1;
-    }
-    if (currentUser2) {
-        const updated2 = users.find(u => u.id === currentUser2.id);
-        if (updated2) currentUser2 = updated2;
+    // Leer quién está logueado desde el POS
+    const posUser1 = localStorage.getItem('realphone_currentUser1');
+    const posUser2 = localStorage.getItem('realphone_currentUser2');
+
+    if (posUser1) {
+        const parsed1 = JSON.parse(posUser1);
+        currentUser1 = users.find(u => u.id === parsed1.id) || parsed1;
+    } else {
+        currentUser1 = null;
     }
 
-    if (currentUser1) applyRolesAndUI(); // Refrescar UI si ya estaban logueados
+    if (posUser2) {
+        const parsed2 = JSON.parse(posUser2);
+        currentUser2 = users.find(u => u.id === parsed2.id) || parsed2;
+    } else {
+        currentUser2 = null;
+    }
+
+    if (currentUser1) applyRolesAndUI(); // Refrescar UI
 
     if (!dataLoaded.users) { dataLoaded.users = true; checkAllDataLoaded(); }
+});
+
+// Listener para cuando el POS cambia los usuarios sin recargar
+window.addEventListener('storage', (e) => {
+    if (e.key === 'realphone_currentUser1' || e.key === 'realphone_currentUser2') {
+        const posUser1 = localStorage.getItem('realphone_currentUser1');
+        const posUser2 = localStorage.getItem('realphone_currentUser2');
+        
+        if (posUser1) {
+            const parsed1 = JSON.parse(posUser1);
+            currentUser1 = users.find(u => u.id === parsed1.id) || parsed1;
+        } else {
+            currentUser1 = null;
+        }
+
+        if (posUser2) {
+            const parsed2 = JSON.parse(posUser2);
+            currentUser2 = users.find(u => u.id === parsed2.id) || parsed2;
+        } else {
+            currentUser2 = null;
+        }
+        
+        if (currentUser1) {
+            applyRolesAndUI();
+            if (loginScreen) loginScreen.classList.add('hidden');
+        } else {
+            if (loginScreen) loginScreen.classList.remove('hidden');
+        }
+    }
 });
 
 onSnapshot(collection(db, "facturas"), (snapshot) => {
@@ -243,7 +282,26 @@ function initApp() {
     if (!currentStore) {
         setupModal.classList.remove('hidden');
     } else {
-        loginScreen.classList.remove('hidden');
+        // En lugar de mostrar login, verificamos si el POS ya inició sesión
+        const posUser1 = localStorage.getItem('realphone_currentUser1');
+        if (posUser1) {
+            loginScreen.classList.add('hidden');
+            const parsed1 = JSON.parse(posUser1);
+            currentUser1 = users.find(u => u.id === parsed1.id) || parsed1;
+            
+            const posUser2 = localStorage.getItem('realphone_currentUser2');
+            if (posUser2) {
+                const parsed2 = JSON.parse(posUser2);
+                currentUser2 = users.find(u => u.id === parsed2.id) || parsed2;
+            }
+            applyRolesAndUI();
+        } else {
+            // Mostrar pantalla de espera (o login bloqueado)
+            loginScreen.classList.remove('hidden');
+            const subtitle = loginScreen.querySelector('.subtitle');
+            if (subtitle) subtitle.textContent = "Por favor, inicia sesión en el Punto de Venta.";
+            if (loginForm) loginForm.style.display = 'none';
+        }
     }
 }
 
@@ -252,75 +310,14 @@ btnSaveSetup.addEventListener('click', () => {
         currentStore = setupStoreSelect.value;
         DB.setStore(currentStore);
         setupModal.classList.add('hidden');
-        loginScreen.classList.remove('hidden');
+        initApp();
     } else {
         alert("Selecciona una tienda primero.");
     }
 });
 
-// ==================== AUTH / LOGIN ====================
-function findUser(username, password) {
-    return users.find(u => u.username.toLowerCase() === username.toLowerCase() && u.password === password);
-}
-
-loginForm.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const u = document.getElementById('loginUsername').value;
-    const p = document.getElementById('loginPassword').value;
-
-    const user = findUser(u, p);
-    if (user) {
-        currentUser1 = user;
-        loginScreen.classList.add('hidden');
-        loginError.style.display = 'none';
-        loginForm.reset();
-
-        applyRolesAndUI();
-    } else {
-        loginError.style.display = 'block';
-    }
-});
-
-btnLogout.addEventListener('click', () => {
-    currentUser1 = null;
-    currentUser2 = null;
-    loginScreen.classList.remove('hidden');
-    activeUsersBar.style.display = 'none';
-});
-
-btnAddCoworker.addEventListener('click', () => {
-    addCoworkerModal.classList.remove('hidden');
-});
-btnCancelCoworker.addEventListener('click', () => {
-    addCoworkerModal.classList.add('hidden');
-    addCoworkerForm.reset();
-});
-
-addCoworkerForm.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const u = document.getElementById('coworkerUsername').value;
-    const p = document.getElementById('coworkerPassword').value;
-
-    const user = findUser(u, p);
-    if (user) {
-        // No permitir que el mismo inicie dos veces
-        if (user.id === currentUser1.id) {
-            coworkerError.textContent = "Este usuario ya inició sesión.";
-            coworkerError.style.display = 'block';
-            return;
-        }
-
-        currentUser2 = user;
-        addCoworkerModal.classList.add('hidden');
-        coworkerError.style.display = 'none';
-        addCoworkerForm.reset();
-
-        applyRolesAndUI();
-    } else {
-        coworkerError.textContent = "Credenciales incorrectas.";
-        coworkerError.style.display = 'block';
-    }
-});
+// Login UI is disabled, it is handled by the POS.
+// The form listeners are removed or left dormant.
 
 // ==================== CHANGE PASSWORD ====================
 btnChangePassword.addEventListener('click', () => {
@@ -377,18 +374,12 @@ function applyRolesAndUI() {
     if (currentUser2) {
         const chip2 = document.createElement('div');
         chip2.className = 'user-chip';
-        // Botón para cerrar sesión de coworker
-        chip2.innerHTML = `<i class="fa-solid fa-user"></i> ${currentUser2.username} ${currentUser2.role === 'admin' ? '<span class="admin-badge">Admin</span>' : ''}
-                           <i class="fa-solid fa-xmark" style="cursor:pointer; margin-left:0.5rem; color:#ef4444;" id="btnRemoveCoworker"></i>`;
+        // En el Gestor ya no se cierra sesión individualmente, se hace desde el POS
+        chip2.innerHTML = `<i class="fa-solid fa-user"></i> ${currentUser2.username} ${currentUser2.role === 'admin' ? '<span class="admin-badge">Admin</span>' : ''}`;
         activeUsersContainer.appendChild(chip2);
         btnAddCoworker.style.display = 'none'; // Max 2
-
-        document.getElementById('btnRemoveCoworker').addEventListener('click', () => {
-            currentUser2 = null;
-            applyRolesAndUI();
-        });
     } else {
-        btnAddCoworker.style.display = 'inline-flex';
+        btnAddCoworker.style.display = 'none'; // Se añade desde el POS
     }
 
     // Atendio Selects Configuration
@@ -423,6 +414,9 @@ function applyRolesAndUI() {
             el.style.display = 'flex';
         });
 
+        const btnNotify = document.getElementById('btnNotifyPayment');
+        if (btnNotify) btnNotify.style.display = 'none';
+
         tiendaFactura.disabled = false;
         tiendaReparacion.disabled = false;
         if (tiendaApartado) tiendaApartado.disabled = false;
@@ -441,6 +435,9 @@ function applyRolesAndUI() {
         if (searchStoreFacturas) searchStoreFacturas.value = '';
         if (searchStoreReparaciones) searchStoreReparaciones.value = '';
 
+        const btnNotify = document.getElementById('btnNotifyPayment');
+        if (btnNotify) btnNotify.style.display = 'inline-flex';
+
         tiendaFactura.value = currentStore;
         tiendaFactura.disabled = true;
         tiendaReparacion.value = currentStore;
@@ -453,6 +450,18 @@ function applyRolesAndUI() {
         }
     }
 
+    const testerBtn = document.getElementById('tabTesterBtn');
+    if (isTester()) {
+        if (testerBtn) testerBtn.classList.remove('hidden');
+    } else {
+        if (testerBtn) {
+            testerBtn.classList.add('hidden');
+            if (testerBtn.classList.contains('active')) {
+                document.querySelector('[data-tab="tab-facturas"]').click();
+            }
+        }
+    }
+
     updateStatsFacturas();
     updateStatsReparaciones();
     updateStatsApartado();
@@ -461,6 +470,10 @@ function applyRolesAndUI() {
     renderReparaciones();
     renderApartados();
     renderEncargos();
+    
+    if (typeof updateTesterUI === 'function') {
+        updateTesterUI();
+    }
 }
 
 
@@ -622,6 +635,10 @@ formReparacion.addEventListener('submit', (e) => {
     const repairType = document.getElementById('repairType').value;
     const tienda = isAdmin() ? document.getElementById('tiendaReparacion').value : currentStore;
     const atendio = document.getElementById('atendioReparacion').value;
+    const tecnico = document.getElementById('tecnicoReparacion').value;
+    const comentarios = document.getElementById('reparacionComentarios').value;
+    const estadoElectrico = document.getElementById('reparacionEstadoElectrico').value;
+    const estadoFisico = document.getElementById('reparacionEstadoFisico').value;
     const totalCost = parseFloat(document.getElementById('costTotalReparacion').value).toFixed(2);
     const advanceCost = parseFloat(document.getElementById('costAdvanceReparacion').value || '0').toFixed(2);
 
@@ -643,6 +660,10 @@ formReparacion.addEventListener('submit', (e) => {
             repairType: repairType,
             tienda: tienda,
             atendio: atendio,
+            tecnico: tecnico,
+            comentarios: comentarios,
+            estadoElectrico: estadoElectrico,
+            estadoFisico: estadoFisico,
             totalCost: totalCost,
             advanceCost: advanceCost,
             status: 'Pendiente',
@@ -845,7 +866,8 @@ function renderTicketCard(ticket) {
                     <h3>${ticket.type} - ${ticket.client}</h3>
                     <div style="display:flex; gap:1rem; margin-top: 0.5rem; flex-wrap:wrap; font-size:0.85rem;">
                         <span style="background:var(--bg-color); padding: 0.2rem 0.5rem; border-radius:4px;"><i class="fa-solid fa-store" style="color:var(--primary-light)"></i> <strong>${ticket.tienda || 'N/A'}</strong></span>
-                        <span style="background:var(--bg-color); padding: 0.2rem 0.5rem; border-radius:4px;"><i class="fa-solid fa-user-tag" style="color:var(--primary-light)"></i> <strong>${ticket.atendio || 'N/A'}</strong></span>
+                        <span style="background:var(--bg-color); padding: 0.2rem 0.5rem; border-radius:4px;"><i class="fa-solid fa-user-tag" style="color:var(--primary-light)"></i> Atendió: <strong>${ticket.atendio || 'N/A'}</strong></span>
+                        ${ticket.tecnico ? `<span style="background:var(--bg-color); padding: 0.2rem 0.5rem; border-radius:4px;"><i class="fa-solid fa-screwdriver-wrench" style="color:var(--primary-light)"></i> Técnico: <strong>${ticket.tecnico}</strong></span>` : ''}
                     </div>
                     <div class="ticket-details">
                         ${ticket.type === 'Factura' ? `
@@ -854,6 +876,9 @@ function renderTicketCard(ticket) {
                             ${phoneDisplay}
                             <div><i class="fa-solid fa-mobile-button" style="width:20px"></i> Modelo: <strong>${ticket.model}</strong></div>
                             <div><i class="fa-solid fa-wrench" style="width:20px"></i> Falla/Reparación: <strong>${ticket.repairType}</strong></div>
+                            ${ticket.estadoElectrico ? `<div><i class="fa-solid fa-bolt" style="width:20px"></i> Estado Eléc.: <strong>${ticket.estadoElectrico}</strong></div>` : ''}
+                            ${ticket.estadoFisico ? `<div><i class="fa-solid fa-magnifying-glass" style="width:20px"></i> Estado Físico: <strong>${ticket.estadoFisico}</strong></div>` : ''}
+                            ${ticket.comentarios ? `<div style="margin-top:0.5rem; padding:0.5rem; background:var(--bg-color); border-radius:6px; font-size:0.8rem;"><strong>Comentarios del cliente:</strong><br>${ticket.comentarios}</div>` : ''}
                         `}
                     </div>
                     <div class="cobro-badge">
@@ -1597,5 +1622,403 @@ if (secretoMsgInput) {
     secretoMsgInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') sendSecretoMessage(); });
 }
 
-// INITIAL CALL eliminado de aquí. Se llama ahora desde checkAllDataLoaded()
 // initApp();
+
+// ==================== TESTER EDITOR ====================
+let testerQuill;
+function initTesterEditor() {
+    if (document.getElementById('testerEditor') && !testerQuill) {
+        testerQuill = new Quill('#testerEditor', {
+            theme: 'snow',
+            modules: { toolbar: '#testerEditorToolbar' }
+        });
+        
+        document.getElementById('btnTesterSearch').addEventListener('click', () => {
+            const query = document.getElementById('testerSearchInput').value;
+            if(query) {
+                document.getElementById('testerWebIframe').src = `https://www.bing.com/search?q=${encodeURIComponent(query)}`;
+            }
+        });
+
+        document.getElementById('btnSaveTesterContent').addEventListener('click', () => {
+            alert('Contenido guardado (simulación)');
+        });
+    }
+}
+setTimeout(initTesterEditor, 1000);
+
+// ==================== NOTIFICACIONES ====================
+const btnNotifyPayment = document.getElementById('btnNotifyPayment');
+if (btnNotifyPayment) {
+    btnNotifyPayment.addEventListener('click', () => {
+        const lastNotify = localStorage.getItem('last_notify_time');
+        const now = Date.now();
+        if (lastNotify && (now - parseInt(lastNotify)) < 15 * 60 * 1000) {
+            const minsLeft = Math.ceil((15 * 60 * 1000 - (now - parseInt(lastNotify))) / 60000);
+            alert(`Debes esperar ${minsLeft} minutos para volver a notificar.`);
+            return;
+        }
+        
+        const username = currentUser1 ? currentUser1.username : 'Un cliente';
+        const notifId = Date.now().toString();
+        const notif = {
+            id: notifId,
+            message: `${username} ha notificado de un pago pendiente.`,
+            timestamp: Date.now(),
+            store: currentStore,
+            read: false
+        };
+        
+        setDoc(doc(db, "notificaciones", notifId), notif).then(() => {
+            localStorage.setItem('last_notify_time', now.toString());
+            alert("Notificación enviada al administrador.");
+        }).catch(e => {
+            alert("Error al notificar: " + e.message);
+        });
+    });
+}
+
+// Escuchar notificaciones
+let initialLoadNotif = true;
+onSnapshot(collection(db, "notificaciones"), (snapshot) => {
+    if (initialLoadNotif) {
+        initialLoadNotif = false;
+        return;
+    }
+    snapshot.docChanges().forEach((change) => {
+        if (change.type === "added") {
+            const notif = change.doc.data();
+            if (isAdmin()) {
+                alert(`🔔 NUEVA NOTIFICACIÓN: ${notif.message}`);
+            }
+        }
+    });
+});
+
+// Setup Capacitor Push Notifications (Admin)
+async function setupPushNotifications() {
+    if (window.Capacitor && window.Capacitor.isNativePlatform()) {
+        const PushNotifications = window.Capacitor.Plugins.PushNotifications;
+        if (PushNotifications) {
+            let permStatus = await PushNotifications.checkPermissions();
+            if (permStatus.receive === 'prompt') {
+                permStatus = await PushNotifications.requestPermissions();
+            }
+            if (permStatus.receive === 'granted') {
+                await PushNotifications.register();
+                
+                PushNotifications.addListener('registration', token => {
+                    console.log('Push registration token: ' + token.value);
+                });
+                
+                PushNotifications.addListener('pushNotificationReceived', notification => {
+                    alert(`Push: ${notification.title} - ${notification.body}`);
+                });
+            }
+        }
+    }
+}
+
+setTimeout(() => {
+    if (isAdmin()) {
+        setupPushNotifications();
+    }
+}, 2000);
+
+// ==================== EDITOR VISUAL GLOBAL ====================
+let isVisualEditMode = false;
+let currentEditTarget = null;
+let currentEditSelector = null;
+let uiOverrides = {};
+
+const fabEditMode = document.getElementById('fabEditMode');
+const visualEditorModal = document.getElementById('visualEditorModal');
+const btnCloseVisualEditor = document.getElementById('btnCloseVisualEditor');
+const visualEditorTextMode = document.getElementById('visualEditorTextMode');
+const visualEditorImageMode = document.getElementById('visualEditorImageMode');
+const visualEditorTextInput = document.getElementById('visualEditorTextInput');
+const visualEditorImageInput = document.getElementById('visualEditorImageInput');
+const btnSaveVisualOverride = document.getElementById('btnSaveVisualOverride');
+
+function getCssSelector(el) {
+    if (el.id) return `#${el.id}`;
+    let path = [];
+    while (el.nodeType === Node.ELEMENT_NODE && el.tagName !== 'HTML') {
+        let selector = el.nodeName.toLowerCase();
+        if (el.id) {
+            selector += '#' + el.id;
+            path.unshift(selector);
+            break;
+        } else {
+            let sib = el, nth = 1;
+            while (sib = sib.previousElementSibling) {
+                if (sib.nodeName.toLowerCase() == selector) nth++;
+            }
+            if (nth != 1) selector += ":nth-of-type("+nth+")";
+        }
+        path.unshift(selector);
+        el = el.parentNode;
+    }
+    return path.join(" > ");
+}
+
+if (fabEditMode) {
+    fabEditMode.addEventListener('click', () => {
+        isVisualEditMode = !isVisualEditMode;
+        if (isVisualEditMode) {
+            document.body.classList.add('edit-mode-active');
+            fabEditMode.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+            fabEditMode.style.backgroundColor = 'var(--status-cancelled)';
+        } else {
+            document.body.classList.remove('edit-mode-active');
+            fabEditMode.innerHTML = '<i class="fa-solid fa-pen-ruler"></i>';
+            fabEditMode.style.backgroundColor = 'var(--primary-color)';
+        }
+    });
+}
+
+document.body.addEventListener('click', (e) => {
+    if (!isVisualEditMode) return;
+    
+    // Ignorar clics en el FAB o dentro del modal del editor
+    if (e.target.closest('#fabEditMode') || e.target.closest('#visualEditorModal')) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    currentEditTarget = e.target;
+    currentEditSelector = getCssSelector(currentEditTarget);
+
+    const isIcon = currentEditTarget.tagName === 'I' || currentEditTarget.tagName === 'IMG';
+    
+    visualEditorTextMode.classList.add('hidden');
+    visualEditorImageMode.classList.add('hidden');
+
+    if (isIcon) {
+        visualEditorImageMode.classList.remove('hidden');
+        if (currentEditTarget.tagName === 'IMG') {
+            visualEditorImageInput.value = currentEditTarget.src;
+        } else {
+            visualEditorImageInput.value = currentEditTarget.className;
+        }
+    } else {
+        visualEditorTextMode.classList.remove('hidden');
+        visualEditorTextInput.value = currentEditTarget.innerText;
+    }
+
+    visualEditorModal.classList.remove('hidden');
+});
+
+if (btnCloseVisualEditor) {
+    btnCloseVisualEditor.addEventListener('click', () => {
+        visualEditorModal.classList.add('hidden');
+    });
+}
+
+if (btnSaveVisualOverride) {
+    btnSaveVisualOverride.addEventListener('click', () => {
+        if (!currentEditSelector) return;
+        
+        let overrideValue = "";
+        let overrideType = "text";
+
+        if (!visualEditorTextMode.classList.contains('hidden')) {
+            overrideValue = visualEditorTextInput.value;
+        } else {
+            overrideValue = visualEditorImageInput.value;
+            overrideType = currentEditTarget.tagName === 'IMG' ? 'img' : 'icon';
+        }
+
+        const overrideId = btoa(encodeURIComponent(currentEditSelector)).replace(/=/g, '');
+        const overrideDoc = {
+            selector: currentEditSelector,
+            type: overrideType,
+            value: overrideValue,
+            timestamp: Date.now()
+        };
+
+        setDoc(doc(db, "ui_overrides", overrideId), overrideDoc).then(() => {
+            visualEditorModal.classList.add('hidden');
+            // Aplicar inmediatamente al elemento
+            applyOverrideToElement(currentEditTarget, overrideDoc);
+        }).catch(e => {
+            alert("Error al guardar: " + e.message);
+        });
+    });
+}
+
+// Cargar overrides y aplicarlos
+onSnapshot(collection(db, "ui_overrides"), (snapshot) => {
+    snapshot.docChanges().forEach((change) => {
+        const data = change.doc.data();
+        if (change.type === "added" || change.type === "modified") {
+            uiOverrides[data.selector] = data;
+            applyOverrideBySelector(data.selector, data);
+        }
+        if (change.type === "removed") {
+            delete uiOverrides[data.selector];
+            // No revertimos dinámicamente para simplificar, se requeriría recargar.
+        }
+    });
+});
+
+function applyOverrideToElement(el, data) {
+    if (data.type === 'text') {
+        // Evitamos reemplazar HTML interno si tiene hijos (como íconos) y solo modificamos el text node principal
+        // Para simplificar, si es texto, solo cambiamos el textContent, pero si tenía íconos se pueden perder.
+        // Si el elemento contiene otros elementos, tratamos de reemplazar solo los nodos de texto.
+        if (el.children.length === 0) {
+            el.innerText = data.value;
+        } else {
+            // Reemplazo simple (puede romper estilos internos si se editó un contenedor complejo)
+            el.innerHTML = data.value; 
+        }
+    } else if (data.type === 'icon') {
+        el.className = data.value;
+    } else if (data.type === 'img') {
+        el.src = data.value;
+    }
+}
+
+function applyOverrideBySelector(selector, data) {
+    const elements = document.querySelectorAll(selector);
+    elements.forEach(el => applyOverrideToElement(el, data));
+}
+
+// MutationObserver para aplicar a elementos renderizados dinámicamente (ej. nuevas facturas)
+const observer = new MutationObserver((mutations) => {
+    let shouldApply = false;
+    for (let m of mutations) {
+        if (m.addedNodes.length > 0) {
+            shouldApply = true;
+            break;
+        }
+    }
+    if (shouldApply) {
+        for (const selector in uiOverrides) {
+            applyOverrideBySelector(selector, uiOverrides[selector]);
+        }
+    }
+});
+observer.observe(document.body, { childList: true, subtree: true });
+
+// Mostrar FAB si es tester
+function updateTesterUI() {
+    if (isTester() && fabEditMode) {
+        fabEditMode.classList.remove('hidden');
+    } else if (fabEditMode) {
+        fabEditMode.classList.add('hidden');
+        isVisualEditMode = false;
+        document.body.classList.remove('edit-mode-active');
+    }
+}
+// Llamarlo en checkAllDataLoaded o donde se cambien los roles
+// Llamarlo en checkAllDataLoaded o donde se cambien los roles (ya agregado dentro de applyRolesAndUI)
+
+// ==================== TEMA GESTOR ====================
+const GESTOR_THEME_KEY = 'realphone_gestor_theme';
+function applyGestorTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem(GESTOR_THEME_KEY, theme);
+}
+applyGestorTheme(localStorage.getItem(GESTOR_THEME_KEY) || 'light');
+
+const btnThemeToggleGestor = document.getElementById('btnThemeToggle');
+const themeDropdownGestor = document.getElementById('themeDropdown');
+if (btnThemeToggleGestor && themeDropdownGestor) {
+    btnThemeToggleGestor.addEventListener('click', (e) => {
+        e.stopPropagation();
+        themeDropdownGestor.classList.toggle('hidden');
+    });
+    document.querySelectorAll('.theme-option').forEach(btn => {
+        btn.addEventListener('click', () => {
+            applyGestorTheme(btn.dataset.theme);
+            themeDropdownGestor.classList.add('hidden');
+        });
+    });
+    document.addEventListener('click', (e) => {
+        if (!themeDropdownGestor.classList.contains('hidden') && !themeDropdownGestor.contains(e.target) && e.target !== btnThemeToggleGestor && !btnThemeToggleGestor.contains(e.target)) {
+            themeDropdownGestor.classList.add('hidden');
+        }
+    });
+}
+
+// ==================== ATAJOS DE TECLADO (?) ====================
+let isShortcutPanelOpen = false;
+
+document.addEventListener('keydown', function(e) {
+    const isTyping = e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT';
+    
+    if (e.key === '?' && !isTyping) {
+        e.preventDefault();
+        toggleGestorShortcuts();
+    }
+    
+    if (e.key === 'Escape') {
+        if (isShortcutPanelOpen) {
+            toggleGestorShortcuts();
+        }
+        if (themeDropdown && !themeDropdown.classList.contains('hidden')) {
+            themeDropdown.classList.add('hidden');
+        }
+    }
+    
+    // Quick actions like F-keys
+    if (!isTyping) {
+        switch (e.key) {
+            case 'F1':
+                e.preventDefault();
+                document.querySelector('.tab-btn[data-tab="tab-facturas"]')?.click();
+                break;
+            case 'F2':
+                e.preventDefault();
+                document.querySelector('.tab-btn[data-tab="tab-reparaciones"]')?.click();
+                break;
+            case 'F3':
+                e.preventDefault();
+                document.querySelector('.tab-btn[data-tab="tab-apartado"]')?.click();
+                break;
+            case 'F4':
+                e.preventDefault();
+                document.querySelector('.tab-btn[data-tab="tab-encargos"]')?.click();
+                break;
+            case 'F10':
+                e.preventDefault();
+                const currentTab = document.querySelector('.tab-btn.active').dataset.tab;
+                if (currentTab === 'tab-facturas') document.getElementById('searchInputFacturas')?.focus();
+                else if (currentTab === 'tab-reparaciones') document.getElementById('searchInputReparaciones')?.focus();
+                else if (currentTab === 'tab-apartado') document.getElementById('searchInputApartado')?.focus();
+                else if (currentTab === 'tab-encargos') document.getElementById('searchInputEncargos')?.focus();
+                break;
+        }
+    }
+});
+
+function toggleGestorShortcuts() {
+    isShortcutPanelOpen = !isShortcutPanelOpen;
+    let panel = document.getElementById('gestorShortcutPanel');
+    if (!panel) {
+        panel = document.createElement('div');
+        panel.id = 'gestorShortcutPanel';
+        panel.className = 'shortcut-panel';
+        panel.innerHTML = `
+            <h3><i class="fas fa-keyboard"></i> Guía de Funciones — Gestor (Presiona '?' para cerrar)</h3>
+            <div class="shortcut-grid">
+                <div class="shortcut-item"><span class="shortcut-key">F1</span> Pestaña Facturas</div>
+                <div class="shortcut-item"><span class="shortcut-key">F2</span> Pestaña Reparaciones</div>
+                <div class="shortcut-item"><span class="shortcut-key">F3</span> Pestaña Apartado</div>
+                <div class="shortcut-item"><span class="shortcut-key">F4</span> Pestaña Encargos</div>
+                <div class="shortcut-item"><span class="shortcut-key">F10</span> Buscar en pestaña actual</div>
+                <div class="shortcut-item"><span class="shortcut-key">ESC</span> Cerrar paneles</div>
+                <div class="shortcut-item"><span class="shortcut-key">?</span> Mostrar/ocultar esta guía</div>
+            </div>
+        `;
+        document.body.appendChild(panel);
+    }
+    
+    if (isShortcutPanelOpen) {
+        panel.classList.add('visible');
+    } else {
+        panel.classList.remove('visible');
+    }
+}
